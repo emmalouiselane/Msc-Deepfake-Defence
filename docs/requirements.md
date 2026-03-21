@@ -1,5 +1,7 @@
 # Requirements Document
 
+**Document Version**: 1.0.1 | **Last Updated**: 2026-03-21 | **Status**: Initial Draft
+
 ## Functional Requirements
 
 The functional requirements for this project define the core capabilities that the prototype must provide:

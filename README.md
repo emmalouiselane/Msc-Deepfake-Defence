@@ -1,6 +1,8 @@
 # Deepfake Detection Browser Extension
 
-> **⚠️ MSc Dissertation Project**: This work is part of an academic dissertation and should not be used without explicit permission from the author.
+> **⚠️ MSc Dissertation Project**: Due to this being part of an academic dissertation, this work should not be used without explicit permission from the author.
+
+**Document Version**: 1.0.1 | **Last Updated**: 2026-03-21 | **Status**: Initial Draft
 
 A user-centred deepfake detection prototype that combines machine learning models with an intuitive interface to help users evaluate the authenticity of digital media.
 
@@ -16,7 +18,7 @@ By integrating detailed explanatory feedback alongside probabilistic authenticit
 
 ## Research Methodology
 
-This project adopts a **practice-based research methodology**, where knowledge is generated through iterative cycles of design, implementation, and evaluation. The functional prototype serves as both a technical tool and a research instrument, allowing technical development and empirical investigation to inform each other.
+This project adopts a practice-based research methodology, where knowledge is generated through iterative cycles of design, implementation, and evaluation. The functional prototype serves as both a technical tool and a research instrument, allowing technical development and empirical investigation to inform each other.
 
 ## Architecture
 
@@ -47,6 +49,7 @@ The system is built as a Chromium browser extension with the following key compo
 
 ## Documentation
 
+- [Document Versions](docs/document-versions.md) - Track all document versions and changes
 - [System Design](docs/system-design.md) - Detailed architecture and component design
 - [Requirements](docs/requirements.md) - Functional and non-functional requirements
 - [User Guide]() - Installation and usage instructions - To be added
@@ -102,8 +105,8 @@ The prototype includes built-in research tools for:
 
 ## Performance Targets
 
-- **Model Size**: <128MB (Chrome extension limit)
-- **Inference Time**: <3 seconds per media file
+- **Model Size**: < 128MB (Chrome extension limit)
+- **Inference Time**: < 3 seconds per media file
 - **Memory Usage**: Efficient model lifecycle management
 - **Accuracy**: Optimized for real-world media detection
 

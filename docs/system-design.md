@@ -1,5 +1,7 @@
 # System Design Document
 
+**Document Version**: 1.0.1 | **Last Updated**: 2026-03-21 | **Status**: Initial Draft
+
 ## System Architecture
 
 ### Objective
