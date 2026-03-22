@@ -4,21 +4,10 @@
 
 | Document | Version | Last Updated | Status | Location |
 |----------|---------|--------------|--------|----------|
-| README.md | 1.0.1 | 2026-03-21 | Initial Draft | / |
-| requirements.md | 1.0.1 | 2026-03-21 | Initial Draft | /docs/ |
-| system-design.md | 1.0.1 | 2026-03-21 | Initial Draft | /docs/ |
-
-## Version History
-
-### v1.0.1 (2026-03-21)
-- Established document versioning system
-- Added requirements.md and system-design.md to version tracking
-
-### v1.0.0 (2026-03-21)
-- Initial project documentation
-- Created README.md with project overview
-- Added requirements.md with functional and technical requirements
-- Added system-design.md with architecture and UI mockups
+| README.md | 1.1.1 | 2026-03-21 | Initial Draft | / |
+| requirements.md | 1.1.1 | 2026-03-21 | First Iteration Complete | /docs/ |
+| system-design.md | 1.2.0 | 2026-03-21 | First Iteration Complete | /docs/ |
+| model-selection.md | 1.0.0 | 2026-03-21 | First Iteration Complete | /docs/ |
 
 ## Version Guidelines
 

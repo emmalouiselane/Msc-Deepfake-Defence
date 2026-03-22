@@ -1,6 +1,6 @@
 # System Design Document
 
-**Document Version**: 1.0.1 | **Last Updated**: 2026-03-21 | **Status**: Initial Draft
+**Document Version**: 1.2.0 | **Last Updated**: 2026-03-21 | **Status**:  First Iteration Complete
 
 ## System Architecture
 
@@ -22,12 +22,13 @@ Client-side Deepfake detection browser-based prototype that balances performance
 
 ### 2. Client-Side Detection Engine
 - **TensorFlow.js runtime** for model execution
-- **Pre-trained deep learning model** (lightweight CNN/RNN/TCN)
-- **Model optimization** (quantization, WebGL acceleration)
-- **Media preprocessing** (frame extraction for videos, normalization)
-- **Scoring engine** (probabilistic detection)
+- **Lightweight CNN model** (MesoNet-inspired architecture)
+- **Model optimization** (quantisation, WebAssembly acceleration)
+- **Media preprocessing** (frame extraction for videos, normalisation)
+- **Scoring engine** (probabilistic detection with risk levels)
 - **Explanation generation** (highlight key features that influence decision)
 - **Memory management** for model lifecycle
+- **Frame sampling** for video processing efficiency
 
 ### 3. Data Management Layer
 - **Local storage** of interaction logs (anonymized)
@@ -41,31 +42,42 @@ Client-side Deepfake detection browser-based prototype that balances performance
 
 ## System Architecture Diagram
 
+### High-Level System Architecture
 ```
-+---------------------------------------------------+
-|                   Browser Frontend                 |
-|  - Media Upload                                    |
-|  - Detection Results Display                       |
-|  - Explanatory Feedback                            |
-|  - Interaction Logging                             |
-+-------------------------+-------------------------+
-                          |
-                          v
-+---------------------------------------------------+
-|               Client-Side Detection Engine         |
-|  - Preprocessing Media                             |
-|  - Deepfake Detection Model                        |
-|  - Probabilistic Scoring                           |
-|  - Explanatory Feedback Generation                 |
-+-------------------------+-------------------------+
-                          |
-                          v
-+---------------------------------------------------+
-|                  Local Data Management             |
-|  - Anonymized Logs                                 |
-|  - Export to CSV/JSON                              |
-|  - Secure Storage                                  |
-+---------------------------------------------------+
++------------------------------------------------------+
+|                User Device (Browser)                  |
+|-------------------------------------------------------|
+|                                                       |
+|  +-------------------+       +---------------------+  |
+|  |  UI Layer         |       |  Processing Engine  |  |
+|  |-------------------|       |---------------------|  |
+|  | - Media Viewer    |       | - Preprocessing     |  |
+|  | - Risk Indicator  | <---> | - Frame Sampling    |  |
+|  | - Confidence UI   |       | - Normalisation     |  |
+|  | - Feedback Panel  |       +----------+----------+  |
+|  |                                  |                 |
+|  +----------------------------------|----------------+
+|                                     v
+|                         +-------------------------+
+|                         | Lightweight CNN Model   |
+|                         | (On-device inference)   |
+|                         +-----------+-------------+
+|                                     |
+|                                     v
+|                         +-------------------------+
+|                         | Decision & Scoring      |
+|                         | - Probability Output    |
+|                         | - Threshold Logic       |
+|                         +-----------+-------------+
+|                                     |
+|                                     v
+|                         +-------------------------+
+|                         | UI Output Layer         |
+|                         | - Risk Level            |
+|                         | - Confidence Score      |
+|                         +-------------------------+
+|                                                      
++------------------------------------------------------+
 ```
 
 ## Chrome Extension Architecture
@@ -95,7 +107,7 @@ Client-side Deepfake detection browser-based prototype that balances performance
 ## Key Design Principles
 
 1. **Privacy-First**: All processing happens client-side, no data leaves the user's browser
-2. **Performance**: TensorFlow.js optimized models with WebGL acceleration
+### 2. Performance**: TensorFlow.js optimized models with WebAssembly acceleration
 3. **Usability**: Intuitive interface with clear, explainable results
 4. **Extensibility**: Modular architecture for easy updates and improvements
 5. **Security**: Browser extension security best practices and minimal permissions
@@ -105,26 +117,66 @@ Client-side Deepfake detection browser-based prototype that balances performance
 ### Data Flow Sequence
 User uploads media → Media preprocessing → Detection model evaluation → Score + explanation generated → Displayed to user → Logs saved locally → Optionally exported for analysis
 
-### Data Flow Diagram
+### Data Flow Diagram (DFD Level 1)
 ```
-[User Uploads Media]
-          |
-          v
-[Preprocessing Module] ---> [Frames / Normalized Data]
-          |
-          v
-[Detection Model] ---> [Authenticity Score + Feature Highlights]
-          |
-          v
-[Feedback Module] ---> [User Interface Display]
-          |
-          v
-[Logging & Storage] ---> [Local Storage / Export CSV]
+[User]
+   |
+   v
+[Media Input (Image/Video)]
+   |
+   v
+[Preprocessing Module]
+   - Resize
+   - Normalise
+   - Frame Extraction (video)
+   |
+   v
+[Lightweight CNN Model]
+   |
+   v
+[Scoring & Interpretation]
+   - Confidence calculation
+   - Threshold mapping to risk levels
+   |
+   v
+[User Interface]
+   - Risk indicator (low/medium/high)
+   - Visual feedback
+   - Explanatory highlights
+   |
+   v
+[User Decision-Making]
+   |
+   v
+[Logging & Storage]
+   - Local anonymized logs
+   - Export functionality
+```
+
+### Sequence Flow
+```
+User uploads/views media
+        ↓
+Extension intercepts media
+        ↓
+Preprocessing runs locally
+        ↓
+Model inference executes (CPU/WebAssembly)
+        ↓
+Prediction generated (probability score)
+        ↓
+System maps score → risk level
+        ↓
+UI displays result instantly
+        ↓
+User interprets and decides action
+        ↓
+Interaction logged locally
 ```
 
 ### Key Considerations
 - **All processing occurs client-side** to ensure privacy (no cloud dependency)
-- **Probabilistic scores** are used to provide nuanced user guidance
+- **Risk-based scoring** provides nuanced user guidance rather than binary classification
 - **Explanatory highlights** improve comprehension and trust
 - **Logging ensures reproducibility** and supports evaluation without compromising user privacy
 
@@ -136,8 +188,8 @@ User uploads media → Media preprocessing → Detection model evaluation → Sc
 - **Progress bar** during preprocessing
 
 ### b) Detection Result Screen
-- **Authenticity Score** (0–100%)
-- **Simple color-coded indicators** (Green = Likely Authentic, Red = Likely Deepfake)
+- **Risk-based confidence levels** (low/medium/high likelihood)
+- **Color-coded indicators** based on risk levels
 - **Explanatory highlights** (e.g., areas of face inconsistencies)
 - **"More Info" collapsible section** with simplified explanation
 
@@ -156,7 +208,7 @@ User uploads media → Media preprocessing → Detection model evaluation → Sc
              v
 +-------------------------------------------------+
 | Detection Result                                |
-| Authenticity Score: 78% (Likely Authentic)      |
+| Risk Level: Medium (65% confidence)                |
 | Highlighted Issues: Slight facial asymmetry     |
 | [More Info ▼]                                   |
 | - Explanation: Detection algorithm observed...  |
@@ -183,9 +235,10 @@ User uploads media → Media preprocessing → Detection model evaluation → Sc
 
 ### Model Performance & Optimization
 - **Model size limits**: Chrome extensions have size restrictions (~128MB unpacked)
-- **Inference time**: Target <3 seconds for user experience
+- **Inference time**: Target <3 seconds for optimal user experience
 - **Memory constraints**: Browser memory limits for model loading
-- **Fallback handling**: What happens if TensorFlow.js fails to load
+- **Fallback handling**: Graceful degradation when TensorFlow.js fails
+- **CPU-based execution**: WebAssembly support for broad compatibility
 
 ### User Experience Enhancements
 - **Batch processing**: Allow multiple files at once
@@ -194,9 +247,10 @@ User uploads media → Media preprocessing → Detection model evaluation → Sc
 - **Error handling**: Clear messages for unsupported formats
 
 ### Browser Compatibility
-- **WebGL requirements**: Some older browsers may not support GPU acceleration
+- **WebAssembly requirements**: Modern browsers support WebAssembly execution
 - **Feature detection**: Check for required APIs before processing
 - **Progressive enhancement**: Graceful degradation for limited environments
+- **CPU-based processing**: No GPU dependency for broader device support
 
 ### Research & Evaluation Framework
 - **A/B testing**: Different explanation formats
