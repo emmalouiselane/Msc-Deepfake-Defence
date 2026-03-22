@@ -2,7 +2,7 @@
 
 > **⚠️ MSc Dissertation Project**: Due to this being part of an academic dissertation, this work should not be used without explicit permission from the author.
 
-**Document Version**: 1.0.1 | **Last Updated**: 2026-03-21 | **Status**: Initial Draft
+**Document Version**: 1.1.1 | **Last Updated**: 2026-03-22 | **Status**: Initial Draft
 
 A user-centred deepfake detection prototype that combines machine learning models with an intuitive interface to help users evaluate the authenticity of digital media.
 
@@ -22,27 +22,29 @@ This project adopts a practice-based research methodology, where knowledge is ge
 
 ## Architecture
 
-The system is built as a Chromium browser extension with the following key components:
+The system is built as a Chromium browser extension with a fully on-device architecture:
 
-- **Client-Side Detection Engine**: TensorFlow.js runtime for deepfake detection
-- **User Interface**: Intuitive media upload and result display
-- **Explanatory Feedback**: Detailed explanations of detection results
-- **Data Management**: Local storage and export capabilities
-- **Security Framework**: Privacy-first design with no cloud dependencies
+- **Lightweight CNN Model**: MesoNet-inspired architecture for efficient on-device inference
+- **CPU-Based Processing**: WebAssembly execution for broad compatibility (no GPU dependency)
+- **Privacy-First Design**: All processing occurs locally in the browser
+- **Risk-Based Scoring**: Graded confidence levels rather than binary classifications
+- **Optimised Pipeline**: Frame sampling for videos, quantisation for efficiency
 
 ## Key Features
 
 - **Media Upload**: Drag-and-drop interface for images and videos
-- **Real-Time Detection**: Client-side processing with TensorFlow.js
-- **Probabilistic Scoring**: Authenticity scores with confidence levels
+- **On-Device Detection**: Lightweight CNN processing with TensorFlow.js
+- **Risk-Based Scoring**: Graded confidence levels (low/medium/high risk)
 - **Explanatory Feedback**: Detailed explanations of detection results
 - **Privacy-First**: All processing occurs locally in the browser
 - **Research Tools**: Automated logging and data export for evaluation
+- **CPU Optimised**: WebAssembly execution for broad compatibility
 
 ## Technical Stack
 
 - **Browser Extension**: Chrome Manifest v3
-- **Machine Learning**: TensorFlow.js with WebGL acceleration
+- **Machine Learning**: TensorFlow.js with WebAssembly optimisation
+- **Model Architecture**: Lightweight CNN (MesoNet-inspired)
 - **Frontend**: HTML5, CSS3, JavaScript
 - **Storage**: Chrome storage API with encryption
 - **Security**: Content Security Policy (CSP) and minimal permissions
@@ -51,9 +53,10 @@ The system is built as a Chromium browser extension with the following key compo
 
 - [Document Versions](docs/document-versions.md) - Track all document versions and changes
 - [System Design](docs/system-design.md) - Detailed architecture and component design
+- [Model Selection](docs/model-selection.md) - Research methodology and model evaluation
 - [Requirements](docs/requirements.md) - Functional and non-functional requirements
 - [User Guide]() - Installation and usage instructions - To be added
-- [API Documentation]() - Technical API reference - To be added
+- [Developer Guide]() - Extension development and customization - To be added
 
 ## Getting Started
 
@@ -101,14 +104,17 @@ The prototype includes built-in research tools for:
 - Chrome (latest versions)
 - Microsoft Edge (Chromium-based)
 - Opera (Chromium-based)
-- Requires WebGL support for optimal performance
+- Requires WebAssembly support for model execution
+- CPU-based processing for broad device compatibility
 
 ## Performance Targets
 
+- **Model Architecture**: Lightweight CNN (MesoNet-inspired)
 - **Model Size**: < 128MB (Chrome extension limit)
-- **Inference Time**: < 3 seconds per media file
+- **Inference Time**: < 3 seconds per media file (CPU-based)
 - **Memory Usage**: Efficient model lifecycle management
-- **Accuracy**: Optimized for real-world media detection
+- **Compatibility**: CPU/WebAssembly execution (no GPU dependency)
+- **Accuracy**: Optimised for real-world media detection with graded confidence
 
 ## Contributing
 

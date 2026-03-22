@@ -1,6 +1,6 @@
 # Requirements Document
 
-**Document Version**: 1.0.1 | **Last Updated**: 2026-03-21 | **Status**: Initial Draft
+**Document Version**: 1.1.1 | **Last Updated**: 2026-03-22 | **Status**:  First Iteration Complete
 
 ## Functional Requirements
 
@@ -52,11 +52,14 @@ A PACT analysis has been conducted to ensure realistic interaction design:
 - **Popup UI** for quick access interface
 
 ### Model & Performance Requirements
+- **Model Architecture**: Lightweight CNN (MesoNet-inspired) for on-device deployment
 - **Model Size**: Must fit within Chrome extension limits (~128MB unpacked)
-- **Inference Time**: Target < 3 seconds for optimal user experience
+- **Inference Time**: Target < 3 seconds per media file (CPU-based) for optimal user experience
 - **Memory Management**: Efficient model loading and unloading
-- **WebGL Acceleration**: GPU acceleration for improved performance
+- **WebAssembly Support**: CPU/WebAssembly execution (no GPU dependency) for broad device compatibility
 - **Fallback Handling**: Graceful degradation when TensorFlow.js fails
+- **Model Optimisation**: Quantisation and pruning for efficiency
+- **Frame Sampling**: Video processing with selective frame analysis
 
 ### Security & Privacy Requirements
 - **Content Security Policy (CSP)**: Strict CSP to prevent XSS attacks
@@ -76,14 +79,17 @@ A PACT analysis has been conducted to ensure realistic interaction design:
 ### User Interface Requirements
 - **Drag-and-Drop**: Intuitive file upload interface
 - **Progress Indicators**: Visual feedback during processing
-- **Color-Coded Results**: Clear visual indicators (Green=Authentic, Red=Deepfake)
+- **Risk-Based Results**: Graded confidence levels (low/medium/high) rather than binary
+- **Color-Coded Indicators**: Clear visual indicators based on risk levels
 - **Explanatory Feedback**: Detailed explanations of detection results
 - **Collapsible Sections**: Expandable information for advanced users
 - **Accessibility**: WCAG Level A compliance
+- **Real-Time Feedback**: Instant display of results after processing
 
 ### Browser Compatibility Requirements
 - **Chromium-Based**: Primary target for Chrome, Edge, Opera
-- **WebGL Support**: Required for GPU acceleration
+- **CPU-Based Processing**: No GPU dependency for wider compatibility
+- **WebAssembly Support**: Required for efficient model execution
 - **Feature Detection**: Graceful fallback for unsupported features
 - **Progressive Enhancement**: Core functionality without advanced features
 
