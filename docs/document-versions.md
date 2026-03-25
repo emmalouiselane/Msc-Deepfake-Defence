@@ -6,7 +6,7 @@
 |----------|---------|--------------|--------|----------|
 | README.md | 1.1.1 | 2026-03-22 | Initial Draft | / |
 | requirements.md | 1.1.1 | 2026-03-22 | First Iteration Complete | /docs/ |
-| system-design.md | 1.2.0 | 2026-03-22 | First Iteration Complete | /docs/ |
+| system-design.md | 1.3.0 | 2026-03-23 | First Iteration Complete | /docs/ |
 | model-selection.md | 1.0.0 | 2026-03-22 | First Iteration Complete | /docs/ |
 
 ## Version Guidelines

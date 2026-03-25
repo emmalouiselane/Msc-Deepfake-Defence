@@ -1,6 +1,6 @@
 # System Design Document
 
-**Document Version**: 1.2.0 | **Last Updated**: 2026-03-22 | **Status**:  First Iteration Complete
+**Document Version**: 1.3.0 | **Last Updated**: 2026-03-23 | **Status**:  First Iteration Complete
 
 ## System Architecture
 
@@ -12,13 +12,15 @@ Client-side Deepfake detection browser-based prototype that balances performance
 ### 1. Browser Extension / Frontend
 - **Chrome Extension Architecture**:
   - Manifest v3 configuration
-  - Content scripts for page integration
-  - Background service worker for processing
-  - Popup UI for quick access
-- **Media upload interface** (images/videos)
-- **Result display** (authenticity score + explanatory feedback)
-- **User interaction logging**
-- **Lightweight data visualization**
+  - Content scripts for real-time page integration and automated media detection
+  - Background service worker for processing coordination and model management
+  - Popup UI for quick controls and system status
+  - Optional extension tab/dashboard for detailed results, transparency, and interaction history
+- **Automated media detection pipeline** (images/videos within web pages)
+- **Media upload interface** (images/videos for user-initiated analysis and testing)
+- **Result display** (authenticity score + explanatory feedback + in-context visual indicators such as overlays or labels)
+- **User interaction logging** (e.g., user responses, trust indicators, actions taken)
+- **Lightweight data visualization** (e.g., detection summaries, performance metrics, interaction history)
 
 ### 2. Client-Side Detection Engine
 - **TensorFlow.js runtime** for model execution
