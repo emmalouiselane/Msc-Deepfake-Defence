@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Detection - Full Analysis</title>
+    <link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Navigation Sidebar -->
+        <nav class="sidebar">            
+            <div class="sidebar-nav">
+                <div class="nav-section-title">Navigation</div>
+                <ul class="nav-list">
+                    <li class="nav-item active" data-page="dashboard">
+                        <div class="nav-icon">📊</div>
+                        <span>Dashboard</span>
+                    </li>
+                    <li class="nav-item" data-page="media-analysis">
+                        <div class="nav-icon">📁</div>
+                        <span>Media Analysis</span>
+                    </li>
+                    <li class="nav-item" data-page="history">
+                        <div class="nav-icon">📋</div>
+                        <span>History</span>
+                    </li>
+                    <li class="nav-item" data-page="analytics">
+                        <div class="nav-icon">📈</div>
+                        <span>Analytics</span>
+                    </li>
+                </ul>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Actions</div>
+                    <ul class="nav-list">
+                        <li class="nav-item" data-page="upload">
+                            <div class="nav-icon">⬆️</div>
+                            <span>Upload Media</span>
+                        </li>
+                        <li class="nav-item" data-page="reanalyse">
+                            <div class="nav-icon">🔄</div>
+                            <span>Re-analyse</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Ready</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-content">
+                    
+                    <h1>Deepfake Detection v1.0</h1>
+                    <h2 id="pageTitle">Advanced Media Analysis Platform</h2>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="content-area">
+                <!-- Dashboard Page -->
+                <div class="page" id="dashboard-page">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">📊</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="totalAnalyzed">0</div>
+                                <div class="stat-label">Total Analyzed</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⚠️</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="highRiskCount">0</div>
+                                <div class="stat-label">High Risk</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="lowRiskCount">0</div>
+                                <div class="stat-label">Low Risk</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⏱️</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="avgProcessingTime">0ms</div>
+                                <div class="stat-label">Avg Processing</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Media Analysis Page -->
+                <div class="page" id="media-analysis-page" style="display: none;">
+                    <section class="upload-section">
+                        <div class="upload-container">
+                            <div class="upload-area-large" id="uploadAreaLarge">
+                                <div class="upload-icon">📁</div>
+                                <h2>Upload Media for Analysis</h2>
+                                <p>Drag and drop images or videos here, or click to browse</p>
+                                <p class="upload-subtext">Supports: JPG, PNG, GIF, MP4, WebM (Max 50MB)</p>
+                                <input type="file" id="fileInputLarge" accept="image/*,video/*" multiple hidden>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- History Page -->
+                <div class="page" id="history-page" style="display: none;">
+                    <section class="results-section">
+                        <div class="results-header">
+                            <h2>Analysis History</h2>
+                            <div class="batch-actions">
+                                <button class="btn btn-secondary" id="exportBtn">Export Results</button>
+                                <button class="btn btn-secondary" id="clearBtn">Clear All</button>
+                            </div>
+                        </div>
+
+                        <div class="results-grid" id="resultsGrid">
+                            <!-- Results will be dynamically added here -->
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Analytics Page -->
+                <div class="page" id="analytics-page" style="display: none;">
+                    <section class="statistics-section">
+                        <h2>Detailed Analytics</h2>
+                        <div class="stats-detailed">
+                            <!-- Additional analytics content -->
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Upload Page -->
+                <div class="page" id="upload-page" style="display: none;">
+                    <section class="upload-section">
+                        <div class="upload-container">
+                            <div class="upload-area-large">
+                                <div class="upload-icon">⬆️</div>
+                                <h2>Upload New Media</h2>
+                                <p>Drag and drop images or videos here, or click to browse</p>
+                                <p class="upload-subtext">Supports: JPG, PNG, GIF, MP4, WebM (Max 50MB)</p>
+                                <input type="file" accept="image/*,video/*" multiple hidden>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Re-analyse Page -->
+                <div class="page" id="reanalyse-page" style="display: none;">
+                    <section class="reanalyse-section">
+                        <h2>Re-analyse Media</h2>
+                        <div class="reanalyse-container">
+                            <!-- Re-analyse content -->
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden file input for batch upload -->
+    <input type="file" id="batchFileInput" accept="image/*,video/*" multiple hidden>
+
+    <script src="newtab.js"></script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Detection</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Deepfake Detection v1.0</h1>
+        </header>
+        
+        <main class="main">
+           <section class="row toggle-section">
+                <p>Detection Enabled</p>
+                <label class="toggle">
+                    <input type="checkbox" id="btnToggle" name="btnToggle" />
+                    <span class="slider"></span>
+                </label>
+           </section>
+
+           <section class="row slider-section">
+                <p>Sensitivity</p>
+                <div class="custom-slider" id="customSlider">
+                    <div class="custom-slider-track" id="sliderTrack"></div>
+                    <div class="custom-slider-thumb" id="sliderThumb"></div>
+                    <input type="range" id="sensitivitySlider" name="sensitivitySlider" min="0" max="100" value="50" class="hidden-slider">
+                </div>
+           </section>
+
+           <section class="row mode-section">
+                <p>Detection Mode</p>
+                <div class="mode-toggle">
+                    <label class="mode-option">
+                        <input type="radio" name="detectionMode" value="manual" id="manualMode" checked>
+                        <span class="mode-label">Manual</span>
+                    </label>
+                    <label class="mode-option">
+                        <input type="radio" name="detectionMode" value="automatic" id="automaticMode">
+                        <span class="mode-label">Automatic</span>
+                    </label>
+                </div>
+           </section>
+
+           <hr />
+
+           <section class="row status-section">
+                <p id="statusText">Disabled</p>
+           </section>
+            
+            <section class="actions">
+                <button class="btn btn-primary" id="openNewTabBtn">Open Analysis</button>
+            </section>
+        </main>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Privacy-focused: All processing happens locally</p>
+        </footer>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>
