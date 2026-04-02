@@ -1,6 +1,6 @@
 # System Design Document
 
-**Document Version**: 1.3.0 | **Last Updated**: 2026-03-23 | **Status**:  First Iteration Complete
+**Document Version**: 1.3.1 | **Last Updated**: 2026-04-02 | **Status**: Updated for ONNX Runtime Web
 
 ## System Architecture
 
@@ -23,9 +23,9 @@ Client-side Deepfake detection browser-based prototype that balances performance
 - **Lightweight data visualization** (e.g., detection summaries, performance metrics, interaction history)
 
 ### 2. Client-Side Detection Engine
-- **TensorFlow.js runtime** for model execution
+- **ONNX Runtime Web** for model execution
 - **Lightweight CNN model** (MesoNet-inspired architecture)
-- **Model optimization** (quantisation, WebAssembly acceleration)
+- **Model optimization** (ONNX quantisation, WebAssembly acceleration)
 - **Media preprocessing** (frame extraction for videos, normalisation)
 - **Scoring engine** (probabilistic detection with risk levels)
 - **Explanation generation** (highlight key features that influence decision)
@@ -90,11 +90,11 @@ Client-side Deepfake detection browser-based prototype that balances performance
 |                 Extension Structure                |
 |                                                    |
 |  manifest.json (v3)                                |
-|  ├── background.js (Service Worker)                |
-|  ├── content.js (Page Integration)                 |
-|  ├── popup.html/js (Quick Access UI)               |
-|  ├── models/ (TensorFlow.js models)                |
-|  └── utils/ (Helper functions)                     |
+  ├── background.js (Service Worker)                |
+  ├── content.js (Page Integration)                 |
+  ├── popup.html/js (Quick Access UI)               |
+  ├── models/ (ONNX models)                         |
+  └── utils/ (Helper functions)                     |
 +---------------------------------------------------+
 ```
 
@@ -109,7 +109,7 @@ Client-side Deepfake detection browser-based prototype that balances performance
 ## Key Design Principles
 
 1. **Privacy-First**: All processing happens client-side, no data leaves the user's browser
-### 2. Performance**: TensorFlow.js optimized models with WebAssembly acceleration
+### 2. Performance**: ONNX Runtime Web optimized models with WebAssembly acceleration
 3. **Usability**: Intuitive interface with clear, explainable results
 4. **Extensibility**: Modular architecture for easy updates and improvements
 5. **Security**: Browser extension security best practices and minimal permissions
@@ -239,7 +239,7 @@ Interaction logged locally
 - **Model size limits**: Chrome extensions have size restrictions (~128MB unpacked)
 - **Inference time**: Target <3 seconds for optimal user experience
 - **Memory constraints**: Browser memory limits for model loading
-- **Fallback handling**: Graceful degradation when TensorFlow.js fails
+- **Fallback handling**: Graceful degradation when ONNX Runtime Web fails
 - **CPU-based execution**: WebAssembly support for broad compatibility
 
 ### User Experience Enhancements

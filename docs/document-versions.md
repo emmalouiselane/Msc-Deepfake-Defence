@@ -4,9 +4,9 @@
 
 | Document | Version | Last Updated | Status | Location |
 |----------|---------|--------------|--------|----------|
-| README.md | 1.1.1 | 2026-03-22 | Initial Draft | / |
-| requirements.md | 1.1.1 | 2026-03-22 | First Iteration Complete | /docs/ |
-| system-design.md | 1.3.0 | 2026-03-23 | First Iteration Complete | /docs/ |
+| README.md | 1.1.2 | 2026-04-02 | Updated for ONNX Runtime Web | / |
+| requirements.md | 1.2.0 | 2026-04-02 | Updated for ONNX Runtime Web | /docs/ |
+| system-design.md | 1.3.1 | 2026-04-02 | Updated for ONNX Runtime Web | /docs/ |
 | model-selection.md | 1.0.0 | 2026-03-22 | First Iteration Complete | /docs/ |
 
 ## Version Guidelines
@@ -18,6 +18,9 @@
 ## Update Process
 
 1. Update document content
-2. Increment version number based on change type
-3. Update this tracking file
-4. Commit changes with descriptive message
+2. Update document version header
+3. Update version tracking table
+4. Add changelog entry (optional)
+5. Increment version number based on change type
+6. Update this tracking file
+7. Commit changes with descriptive message

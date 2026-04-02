@@ -1,6 +1,6 @@
 # Requirements Document
 
-**Document Version**: 1.1.1 | **Last Updated**: 2026-03-22 | **Status**:  First Iteration Complete
+**Document Version**: 1.2.0 | **Last Updated**: 2026-04-02 | **Status**: Updated for ONNX Runtime Web
 
 ## Functional Requirements
 
@@ -46,7 +46,7 @@ A PACT analysis has been conducted to ensure realistic interaction design:
 
 ### Browser Extension Architecture
 - **Manifest v3** compliance for Chrome extension
-- **TensorFlow.js** runtime for client-side ML inference
+- **ONNX Runtime Web** for client-side ML inference
 - **Service Worker** for background processing
 - **Content Scripts** for page integration
 - **Popup UI** for quick access interface
@@ -57,8 +57,8 @@ A PACT analysis has been conducted to ensure realistic interaction design:
 - **Inference Time**: Target < 3 seconds per media file (CPU-based) for optimal user experience
 - **Memory Management**: Efficient model loading and unloading
 - **WebAssembly Support**: CPU/WebAssembly execution (no GPU dependency) for broad device compatibility
-- **Fallback Handling**: Graceful degradation when TensorFlow.js fails
-- **Model Optimisation**: Quantisation and pruning for efficiency
+- **Fallback Handling**: Graceful degradation when ONNX Runtime Web fails
+- **Model Optimisation**: ONNX quantisation and pruning for efficiency
 - **Frame Sampling**: Video processing with selective frame analysis
 
 ### Security & Privacy Requirements

@@ -2,7 +2,7 @@
 
 > **Warning**: This work is part of an academic dissertation and should not be used without explicit permission from the author.
 
-**Document Version**: 1.1.1 | **Last Updated**: 2026-03-22 | **Status**: Initial Draft
+**Document Version**: 1.1.2 | **Last Updated**: 2026-04-02 | **Status**: Updated for ONNX Runtime Web
 
 ## Overview
 
@@ -46,6 +46,7 @@ The system is built as a Chromium browser extension with a fully on-device archi
 - **Frontend**: HTML5, CSS3, JavaScript
 - **Storage**: Chrome storage API with encryption
 - **Security**: Content Security Policy (CSP) and minimal permissions
+- **Runtime**: ONNX Runtime Web for client-side inference
 
 ## Framework Choice: PyTorch vs TensorFlow
 
