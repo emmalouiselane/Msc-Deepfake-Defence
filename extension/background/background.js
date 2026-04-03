@@ -1,56 +1,83 @@
+import * as ort from '../dist/ort.wasm.bundle.min.mjs';
+
 // Deepfake Detection Extension - Background Service Worker
 class BackgroundService {
     constructor() {
+        this.modelSession = null;
+        this.modelInitialized = false;
+        this.ort = null;
+        this.modelRegistry = {
+            lightweight: {
+                key: 'lightweight',
+                name: 'LightweightNet',
+                version: '2.11',
+                architecture: 'CNN',
+                parameters: 2377,
+                size: '0.03 MB',
+                framework: 'PyTorch + ONNX',
+                accuracy: 'Prototype',
+                lastUpdated: '2026-04-03',
+                modelPath: 'models/lightweight_model.onnx',
+                externalDataPath: 'models/lightweight_model.onnx.data'
+            },
+            mesonet: {
+                key: 'mesonet',
+                name: 'MesoNet',
+                version: '2.11',
+                architecture: 'MesoNet-inspired CNN',
+                parameters: 28009,
+                size: '0.11 MB',
+                framework: 'PyTorch + ONNX',
+                accuracy: 'Research candidate',
+                lastUpdated: '2026-04-03',
+                modelPath: 'models/mesonet_model.onnx',
+                externalDataPath: 'models/mesonet_model.onnx.data'
+            }
+        };
+        this.selectedModelKey = 'lightweight';
+        this.modelInfo = this.modelRegistry[this.selectedModelKey];
+
         this.initializeEventListeners();
     }
 
     initializeEventListeners() {
-        // Extension installation
         chrome.runtime.onInstalled.addListener((details) => {
             if (details.reason === 'install') {
                 this.handleInstall();
-            } else if (details.reason === 'update') {
-                this.handleUpdate();
+                return;
             }
+
+            this.handleUpdate();
         });
 
-        // Handle messages from popup and content scripts
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             this.handleMessage(message, sender, sendResponse);
-            return true; // Keep message channel open for async response
+            return true;
         });
 
-        // Handle storage changes
         chrome.storage.onChanged.addListener((changes, namespace) => {
             this.handleStorageChange(changes, namespace);
         });
     }
 
-    handleInstall() {
-        console.log('Deepfake Detection Extension installed');
-        
-        // Set default settings with detection disabled by default
-        chrome.storage.local.set({
+    async handleInstall() {
+        const defaults = this.getDefaultSettings();
+        await chrome.storage.local.set({
+            ...defaults,
             settings: {
                 autoAnalyze: false,
                 confidenceThreshold: 70,
                 enableNotifications: true,
-                modelVersion: '2.11',
-                detectionEnabled: false,  // Default to disabled
-                sensitivity: 50,  // Default sensitivity
-                detectionMode: 'manual'  // Default to manual mode
+                modelVersion: this.modelInfo.version,
+                modelKey: defaults.modelKey,
+                detectionEnabled: defaults.detectionEnabled,
+                sensitivity: defaults.sensitivity,
+                detectionMode: defaults.detectionMode
             },
-            statistics: {
-                totalAnalyzed: 0,
-                highRiskCount: 0,
-                lowRiskCount: 0,
-                avgProcessingTime: 0
-            },
-            analysisHistory: []
+            statistics: this.getEmptyStatistics(),
+            analysisHistory: [],
+            whitelistedDomains: []
         });
-
-        // Don't automatically open new tab - user controls when to open
-        console.log('Extension installed. Click the popup to get started.');
     }
 
     handleUpdate() {
@@ -60,124 +87,796 @@ class BackgroundService {
     async handleMessage(message, sender, sendResponse) {
         try {
             switch (message.action) {
-                case 'analyzeMedia':
-                    const result = await this.analyzeMedia(message.data);
-                    sendResponse({ success: true, result });
-                    break;
+                case 'ping':
+                    sendResponse({ success: true });
+                    return;
+
+                case 'analyzeMedia': {
+                    const result = await this.analyzeMedia(message.data || {}, sender);
+                    if (result.success === false) {
+                        sendResponse({ success: false, error: result.error });
+                    } else {
+                        sendResponse({ success: true, result });
+                    }
+                    return;
+                }
+
+                case 'toggleDetection': {
+                    const enabled = Boolean(message.enabled);
+                    await chrome.storage.local.set({ detectionEnabled: enabled });
+                    await this.notifyActiveTab({ action: 'toggleDetection', enabled });
+                    sendResponse({ success: true });
+                    return;
+                }
+
+                case 'updateSensitivity': {
+                    const sensitivity = this.normalizeSensitivity(message.sensitivity);
+                    await chrome.storage.local.set({ sensitivity });
+                    await this.notifyActiveTab({ action: 'updateSensitivity', sensitivity });
+                    sendResponse({ success: true, sensitivity });
+                    return;
+                }
+
+                case 'updateDetectionMode': {
+                    const mode = message.mode === 'automatic' ? 'automatic' : 'manual';
+                    await chrome.storage.local.set({ detectionMode: mode });
+                    await this.notifyActiveTab({ action: 'updateDetectionMode', mode });
+                    sendResponse({ success: true, mode });
+                    return;
+                }
+
+                case 'updateModelType': {
+                    const modelKey = await this.setSelectedModel(message.modelKey);
+                    sendResponse({
+                        success: true,
+                        modelKey,
+                        modelInfo: this.getSelectedModelInfo()
+                    });
+                    return;
+                }
 
                 case 'getModelInfo':
-                    const modelInfo = await this.getModelInfo();
-                    sendResponse({ success: true, modelInfo });
-                    break;
+                    sendResponse({
+                        success: true,
+                        modelInfo: await this.getModelInfo(),
+                        availableModels: this.getAvailableModels()
+                    });
+                    return;
 
                 case 'getStatistics':
-                    const stats = await this.getStatistics();
-                    sendResponse({ success: true, statistics: stats });
-                    break;
+                    sendResponse({ success: true, statistics: await this.getStatistics() });
+                    return;
 
                 case 'exportData':
-                    const exportResult = await this.exportAnalysisData();
-                    sendResponse({ success: true, data: exportResult });
-                    break;
+                    sendResponse({ success: true, data: await this.exportAnalysisData() });
+                    return;
 
                 case 'clearData':
                     await this.clearAnalysisData();
                     sendResponse({ success: true });
-                    break;
+                    return;
+
+                case 'addDomainToWhitelist':
+                    await this.addDomainToWhitelist(message.domain);
+                    sendResponse({ success: true });
+                    return;
+
+                case 'removeDomainFromWhitelist':
+                    await this.removeDomainFromWhitelist(message.domain);
+                    sendResponse({ success: true });
+                    return;
+
+                case 'getWhitelistedDomains':
+                    sendResponse({ success: true, domains: await this.getWhitelistedDomains() });
+                    return;
+
+                case 'isDomainWhitelisted':
+                    sendResponse({
+                        success: true,
+                        whitelisted: await this.isDomainWhitelisted(message.domain)
+                    });
+                    return;
 
                 default:
-                    sendResponse({ success: false, error: 'Unknown action' });
+                    sendResponse({
+                        success: false,
+                        error: {
+                            message: `Unknown action: ${message.action}`,
+                            userMessage: 'The extension received an unsupported request.'
+                        }
+                    });
             }
         } catch (error) {
             console.error('Background service error:', error);
-            sendResponse({ success: false, error: error.message });
+            sendResponse({
+                success: false,
+                error: {
+                    message: error.message || 'Unexpected background error',
+                    userMessage: 'The extension hit an internal error. Reload the extension and try again.'
+                }
+            });
         }
     }
 
-    async analyzeMedia(mediaData) {
-        // Simulate model loading and inference
-        await this.delay(1500);
-
-        // Mock analysis results
-        const mockResults = {
-            riskScore: Math.random() * 100,
-            confidence: 70 + Math.random() * 25,
-            processingTime: 150 + Math.random() * 100,
-            explanation: this.generateExplanation(),
-            technicalDetails: {
-                model: 'MesoNet v2.11',
-                parameters: '28,009',
-                inferenceTime: `${Math.floor(100 + Math.random() * 200)}ms`
-            },
-            timestamp: new Date().toISOString()
+    getDefaultSettings() {
+        return {
+            detectionEnabled: false,
+            sensitivity: 50,
+            detectionMode: 'manual',
+            modelKey: 'lightweight'
         };
+    }
 
-        // Save to storage
-        await this.saveAnalysisResult(mockResults);
+    getAvailableModels() {
+        return Object.values(this.modelRegistry).map((model) => ({
+            key: model.key,
+            name: model.name,
+            architecture: model.architecture,
+            parameters: model.parameters,
+            size: model.size,
+            accuracy: model.accuracy
+        }));
+    }
 
-        return mockResults;
+    normalizeModelKey(value) {
+        return Object.prototype.hasOwnProperty.call(this.modelRegistry, value) ? value : 'lightweight';
+    }
+
+    getSelectedModelInfo() {
+        return this.modelRegistry[this.selectedModelKey] || this.modelRegistry.lightweight;
+    }
+
+    async setSelectedModel(value) {
+        const modelKey = this.normalizeModelKey(value);
+        if (this.selectedModelKey !== modelKey) {
+            this.selectedModelKey = modelKey;
+            this.modelInfo = this.getSelectedModelInfo();
+            await this.resetModelSession();
+        }
+
+        await chrome.storage.local.set({
+            modelKey,
+            settings: {
+                autoAnalyze: false,
+                confidenceThreshold: 70,
+                enableNotifications: true,
+                modelVersion: this.modelInfo.version,
+                modelKey,
+                detectionEnabled: (await chrome.storage.local.get(['detectionEnabled'])).detectionEnabled ?? false,
+                sensitivity: this.normalizeSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity),
+                detectionMode: (await chrome.storage.local.get(['detectionMode'])).detectionMode || 'manual'
+            }
+        });
+
+        return modelKey;
+    }
+
+    async resetModelSession() {
+        this.modelSession = null;
+        this.modelInitialized = false;
+    }
+
+    getEmptyStatistics() {
+        return {
+            totalAnalyzed: 0,
+            highRiskCount: 0,
+            lowRiskCount: 0,
+            avgProcessingTime: 0
+        };
+    }
+
+    normalizeSensitivity(value) {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) {
+            return 50;
+        }
+
+        return Math.max(0, Math.min(100, Math.round(parsed)));
+    }
+
+    validateServiceContext() {
+        return Boolean(
+            typeof self !== 'undefined' &&
+            typeof chrome !== 'undefined' &&
+            chrome.runtime &&
+            chrome.storage
+        );
+    }
+
+    async ensureModelInitialized() {
+        const storedModelKey = this.normalizeModelKey((await chrome.storage.local.get(['modelKey'])).modelKey);
+        if (this.selectedModelKey !== storedModelKey) {
+            this.selectedModelKey = storedModelKey;
+            this.modelInfo = this.getSelectedModelInfo();
+            await this.resetModelSession();
+        }
+
+        if (this.modelInitialized && this.modelSession) {
+            return;
+        }
+
+        if (!this.validateServiceContext()) {
+            throw new Error('Service worker context is unavailable');
+        }
+
+        await this.initializeONNXModel();
+    }
+
+    async analyzeMedia(mediaData, sender) {
+        let imageBitmap;
+        let imageDebug = {};
+
+        try {
+            const imageUrl = mediaData?.src;
+            if (!imageUrl) {
+                throw new Error('No media source was provided for analysis.');
+            }
+
+            this.validateMediaRequest(mediaData);
+
+            const sensitivity = mediaData?.sensitivity !== undefined
+                ? this.normalizeSensitivity(mediaData.sensitivity)
+                : this.normalizeSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity);
+
+            await this.ensureModelInitialized();
+
+            const imageSource = await this.loadImageForAnalysis(mediaData, sender);
+            imageBitmap = imageSource.imageBitmap;
+            imageDebug = imageSource.debugInfo || {};
+            const startedAt = Date.now();
+            const result = await this.runDirectInference(imageBitmap, sensitivity, imageDebug);
+            const processingTime = Date.now() - startedAt;
+
+            const analysisResult = {
+                riskScore: result.riskScore,
+                confidence: result.confidence,
+                processingTime,
+                explanation: this.generateExplanation(result.riskScore, sensitivity),
+                technicalDetails: {
+                    ...result.technicalDetails,
+                    inferenceTime: `${processingTime}ms`
+                },
+                debug: result.debug,
+                timestamp: new Date().toISOString()
+            };
+
+            await this.saveAnalysisResult(this.createPersistableResult(analysisResult));
+            return analysisResult;
+        } catch (error) {
+            console.error('Deepfake Detection: Model analysis failed:', {
+                name: error?.name,
+                message: error?.message,
+                stack: error?.stack,
+                mediaType: mediaData?.type,
+                mediaUrl: mediaData?.src
+            });
+            return this.createErrorResult(error);
+        } finally {
+            if (imageBitmap && typeof imageBitmap.close === 'function') {
+                imageBitmap.close();
+            }
+        }
+    }
+
+    validateMediaRequest(mediaData) {
+        const mediaType = mediaData?.type || 'image';
+
+        if (mediaType === 'video') {
+            throw new Error('Direct video analysis is not supported yet. Use a video poster image instead.');
+        }
+    }
+
+    async loadImageForAnalysis(mediaData, sender) {
+        if (this.shouldPreferCapturedImage(mediaData)) {
+            return this.captureElementImageBitmap(sender, mediaData.captureBounds);
+        }
+
+        try {
+            const imageBitmap = await this.loadImageBitmapFromUrl(mediaData.src);
+            return {
+                imageBitmap,
+                debugInfo: {
+                    strategy: 'direct-fetch',
+                    mediaUrl: mediaData.src,
+                    requestedBounds: mediaData.captureBounds || null
+                }
+            };
+        } catch (error) {
+            if (this.shouldFallbackToCapturedImage(mediaData, error)) {
+                console.warn('Deepfake Detection: Falling back to tab capture for media analysis.', {
+                    message: error?.message,
+                    mediaUrl: mediaData?.src
+                });
+                return this.captureElementImageBitmap(sender, mediaData.captureBounds);
+            }
+
+            throw error;
+        }
+    }
+
+    shouldPreferCapturedImage(mediaData) {
+        return false;
+    }
+
+    shouldFallbackToCapturedImage(mediaData, error) {
+        if (!mediaData?.captureBounds) {
+            return false;
+        }
+
+        const message = error?.message || '';
+        if (/activeTab|captureVisibleTab|permission is required/i.test(message)) {
+            return false;
+        }
+
+        return (
+            /fetch|network|http|content security policy|unsupported media type|decode/i.test(message) ||
+            this.shouldPreferCapturedImage(mediaData)
+        );
+    }
+
+    getHostname(url) {
+        try {
+            return new URL(url).hostname;
+        } catch {
+            return '';
+        }
+    }
+
+    async captureElementImageBitmap(sender, captureBounds) {
+        if (!sender?.tab?.windowId) {
+            throw new Error('Cannot capture the current tab for analysis.');
+        }
+
+        if (!captureBounds) {
+            throw new Error('No capture bounds were provided for the selected media.');
+        }
+
+        const dataUrl = await chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: 'png' });
+        const response = await fetch(dataUrl);
+        const blob = await response.blob();
+        const screenshotBitmap = await createImageBitmap(blob);
+
+        try {
+            const crop = this.normalizeCaptureBounds(captureBounds, screenshotBitmap.width, screenshotBitmap.height);
+            const imageBitmap = await createImageBitmap(
+                screenshotBitmap,
+                crop.x,
+                crop.y,
+                crop.width,
+                crop.height
+            );
+            return {
+                imageBitmap,
+                debugInfo: {
+                    strategy: 'visible-tab-crop',
+                    screenshotDimensions: {
+                        width: screenshotBitmap.width,
+                        height: screenshotBitmap.height
+                    },
+                    requestedBounds: this.sanitizeBounds(captureBounds),
+                    normalizedBounds: crop
+                }
+            };
+        } finally {
+            if (typeof screenshotBitmap.close === 'function') {
+                screenshotBitmap.close();
+            }
+        }
+    }
+
+    normalizeCaptureBounds(captureBounds, screenshotWidth, screenshotHeight) {
+        const scale = Math.max(1, Number(captureBounds.devicePixelRatio) || 1);
+        const x = Math.max(0, Math.floor((captureBounds.x || 0) * scale));
+        const y = Math.max(0, Math.floor((captureBounds.y || 0) * scale));
+        const maxWidth = Math.max(1, screenshotWidth - x);
+        const maxHeight = Math.max(1, screenshotHeight - y);
+        const width = Math.max(1, Math.min(Math.floor((captureBounds.width || 1) * scale), maxWidth));
+        const height = Math.max(1, Math.min(Math.floor((captureBounds.height || 1) * scale), maxHeight));
+
+        return { x, y, width, height };
+    }
+
+    sanitizeBounds(bounds) {
+        if (!bounds) {
+            return null;
+        }
+
+        return {
+            x: Number(bounds.x ?? 0),
+            y: Number(bounds.y ?? 0),
+            width: Number(bounds.width ?? 0),
+            height: Number(bounds.height ?? 0),
+            devicePixelRatio: Number(bounds.devicePixelRatio ?? 1)
+        };
+    }
+
+    async loadONNXRuntime() {
+        if (this.ort) {
+            return;
+        }
+
+        if (!ort) {
+            throw new Error('ONNX Runtime did not attach to the service worker context.');
+        }
+
+        this.ort = ort;
+    }
+
+    async initializeONNXModel() {
+        await this.loadONNXRuntime();
+
+        const modelConfig = this.getSelectedModelInfo();
+
+        this.ort.env.wasm.wasmPaths = {
+            'ort-wasm-simd-threaded.wasm': chrome.runtime.getURL('dist/ort-wasm-simd-threaded.wasm')
+        };
+        this.ort.env.wasm.numThreads = 1;
+        this.ort.env.wasm.simd = false;
+        this.ort.env.wasm.proxy = false;
+
+        const modelBytes = await this.fetchModelBytes(modelConfig.modelPath);
+        const sessionOptions = {
+            executionProviders: ['wasm'],
+            graphOptimizationLevel: 'basic'
+        };
+        const externalData = await this.tryLoadExternalData(modelConfig.externalDataPath);
+        if (externalData) {
+            sessionOptions.externalData = [
+                {
+                    path: modelConfig.externalDataPath.split('/').pop(),
+                    data: externalData
+                }
+            ];
+        }
+
+        this.modelSession = await this.ort.InferenceSession.create(modelBytes, sessionOptions);
+
+        this.modelInitialized = true;
+    }
+
+    async fetchModelBytes(modelPath) {
+        const response = await fetch(chrome.runtime.getURL(modelPath));
+        if (!response.ok) {
+            throw new Error(`Selected model is unavailable: ${modelPath} (HTTP ${response.status})`);
+        }
+
+        return new Uint8Array(await response.arrayBuffer());
+    }
+
+    async tryLoadExternalData(dataPath) {
+        if (!dataPath) {
+            return null;
+        }
+
+        const response = await fetch(chrome.runtime.getURL(dataPath));
+        if (!response.ok) {
+            return null;
+        }
+
+        return new Uint8Array(await response.arrayBuffer());
+    }
+
+    async loadImageBitmapFromUrl(imageUrl) {
+        let response;
+
+        try {
+            response = await fetch(imageUrl, { cache: 'no-store' });
+        } catch (error) {
+            throw new Error(`Failed to fetch image: ${error.message}`);
+        }
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: HTTP ${response.status}`);
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.startsWith('image/')) {
+            throw new Error(`Unsupported media type returned by source: ${contentType || 'unknown'}`);
+        }
+
+        const blob = await response.blob();
+
+        try {
+            return await createImageBitmap(blob);
+        } catch (error) {
+            throw new Error(
+                `Failed to decode image data${error?.message ? `: ${error.message}` : '.'}`
+            );
+        }
+    }
+
+    async runDirectInference(imageBitmap, sensitivity, imageDebug = {}) {
+        const preprocessing = await this.preprocessImage(imageBitmap);
+        const inputTensor = preprocessing.inputTensor;
+        const results = await this.modelSession.run({ input: inputTensor });
+        const outputName = Object.keys(results)[0];
+
+        if (!outputName || !results[outputName]?.data?.length) {
+            throw new Error('Model returned an empty output tensor.');
+        }
+
+        const rawOutput = Number(results[outputName].data[0]);
+        const threshold = this.calculateSensitivityThreshold(sensitivity);
+        const confidence = this.calculateConfidence(rawOutput, threshold);
+        const riskScore = this.applySensitivityToModelOutput(rawOutput, sensitivity);
+        const margin = rawOutput - threshold;
+
+        console.log('Deepfake Detection: Inference summary', {
+            rawOutput: rawOutput.toFixed(6),
+            threshold: threshold.toFixed(6),
+            margin: margin.toFixed(6),
+            riskScore: riskScore.toFixed(2),
+            confidence: confidence.toFixed(2),
+            outputName,
+            tensorShape: inputTensor.dims,
+            inputSize: preprocessing.debug?.sourceDimensions,
+            strategy: imageDebug.strategy || 'unknown'
+        });
+
+        return {
+            riskScore,
+            confidence,
+            rawOutput,
+            threshold,
+            technicalDetails: {
+                model: `${this.modelInfo.name} v${this.modelInfo.version}`,
+                parameters: this.modelInfo.parameters.toLocaleString(),
+                sensitivity,
+                threshold: threshold.toFixed(3),
+                rawOutput: rawOutput.toFixed(6),
+                margin: margin.toFixed(6),
+                outputName,
+                confidenceBasis: 'distance-from-threshold',
+                captureStrategy: imageDebug.strategy || 'unknown',
+                sourceDimensions: preprocessing.debug?.sourceDimensions || null,
+                resizedDimensions: preprocessing.debug?.resizedDimensions || null
+            },
+            debug: {
+                capture: imageDebug,
+                preprocess: preprocessing.debug
+            }
+        };
+    }
+
+    async preprocessImage(imageBitmap) {
+        const targetSize = 128;
+        const canvas = new OffscreenCanvas(targetSize, targetSize);
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            throw new Error('Unable to create an OffscreenCanvas rendering context.');
+        }
+
+        const fit = this.calculateContainFit(imageBitmap.width, imageBitmap.height, targetSize, targetSize);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, targetSize, targetSize);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(imageBitmap, fit.x, fit.y, fit.width, fit.height);
+
+        const pixels = ctx.getImageData(0, 0, targetSize, targetSize).data;
+        const input = new Float32Array(3 * targetSize * targetSize);
+
+        for (let c = 0; c < 3; c += 1) {
+            for (let h = 0; h < targetSize; h += 1) {
+                for (let w = 0; w < targetSize; w += 1) {
+                    const pixelIndex = (h * targetSize + w) * 4;
+                    const tensorIndex = c * targetSize * targetSize + h * targetSize + w;
+                    input[tensorIndex] = pixels[pixelIndex + c] / 255;
+                }
+            }
+        }
+
+        return {
+            inputTensor: new this.ort.Tensor('float32', input, [1, 3, targetSize, targetSize]),
+            debug: {
+                sourceDimensions: {
+                    width: imageBitmap.width,
+                    height: imageBitmap.height
+                },
+                resizedDimensions: {
+                    width: targetSize,
+                    height: targetSize
+                },
+                fit,
+                channelMeans: this.calculateChannelMeans(input),
+                preview: {
+                    original: await this.createDebugPreviewDataUrl(imageBitmap, 240, 240),
+                    resized: await this.createCanvasPreviewDataUrl(canvas)
+                }
+            }
+        };
+    }
+
+    calculateContainFit(sourceWidth, sourceHeight, targetWidth, targetHeight) {
+        const safeSourceWidth = Math.max(1, sourceWidth);
+        const safeSourceHeight = Math.max(1, sourceHeight);
+        const scale = Math.min(targetWidth / safeSourceWidth, targetHeight / safeSourceHeight);
+        const width = Math.max(1, Math.round(safeSourceWidth * scale));
+        const height = Math.max(1, Math.round(safeSourceHeight * scale));
+        const x = Math.floor((targetWidth - width) / 2);
+        const y = Math.floor((targetHeight - height) / 2);
+
+        return {
+            mode: 'contain-pad',
+            scale: Number(scale.toFixed(6)),
+            x,
+            y,
+            width,
+            height,
+            padding: {
+                left: x,
+                top: y,
+                right: Math.max(0, targetWidth - x - width),
+                bottom: Math.max(0, targetHeight - y - height)
+            }
+        };
+    }
+
+    calculateChannelMeans(input) {
+        const planeSize = 128 * 128;
+        const channels = ['r', 'g', 'b'];
+        const result = {};
+
+        channels.forEach((channel, index) => {
+            let sum = 0;
+            const offset = index * planeSize;
+            for (let i = 0; i < planeSize; i += 1) {
+                sum += input[offset + i];
+            }
+            result[channel] = Number((sum / planeSize).toFixed(6));
+        });
+
+        return result;
+    }
+
+    async createDebugPreviewDataUrl(imageBitmap, maxWidth, maxHeight) {
+        const scale = Math.min(
+            1,
+            maxWidth / Math.max(1, imageBitmap.width),
+            maxHeight / Math.max(1, imageBitmap.height)
+        );
+        const width = Math.max(1, Math.round(imageBitmap.width * scale));
+        const height = Math.max(1, Math.round(imageBitmap.height * scale));
+        const canvas = new OffscreenCanvas(width, height);
+        const ctx = canvas.getContext('2d');
+
+        if (!ctx) {
+            return null;
+        }
+
+        ctx.drawImage(imageBitmap, 0, 0, width, height);
+        return this.createCanvasPreviewDataUrl(canvas);
+    }
+
+    async createCanvasPreviewDataUrl(canvas) {
+        const blob = await canvas.convertToBlob({ type: 'image/png' });
+        const buffer = await blob.arrayBuffer();
+        return `data:image/png;base64,${this.arrayBufferToBase64(buffer)}`;
+    }
+
+    arrayBufferToBase64(buffer) {
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        const chunkSize = 0x8000;
+
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            const chunk = bytes.subarray(i, i + chunkSize);
+            binary += String.fromCharCode(...chunk);
+        }
+
+        return btoa(binary);
+    }
+
+    createPersistableResult(result) {
+        if (!result?.debug) {
+            return result;
+        }
+
+        return {
+            ...result,
+            debug: {
+                capture: result.debug.capture || null,
+                preprocess: result.debug.preprocess
+                    ? {
+                        ...result.debug.preprocess,
+                        preview: undefined
+                    }
+                    : null
+            }
+        };
+    }
+
+    createErrorResult(error) {
+        const message = error?.message || 'Unexpected analysis failure';
+        let type = 'unknown_error';
+        let userMessage = 'Analysis failed. Please try again with another image.';
+
+        if (/fetch|network|http/i.test(message)) {
+            type = 'network_error';
+            userMessage = 'The extension could not download this media for analysis.';
+        } else if (/video analysis is not supported/i.test(message)) {
+            type = 'unsupported_media_type';
+            userMessage = 'Video files are not supported yet. Try analyzing a thumbnail, poster frame, or image instead.';
+        } else if (/unsupported media type/i.test(message)) {
+            type = 'unsupported_media_type';
+            userMessage = 'This media source did not return an image that the extension can analyze.';
+        } else if (/wasm|onnx|model|runtime/i.test(message)) {
+            type = 'model_load_failed';
+            userMessage = 'The AI model could not be loaded. Reload the extension and try again.';
+        } else if (/canvas|image|bitmap|decode/i.test(message)) {
+            type = 'image_load_failed';
+            userMessage = 'This media could not be decoded for analysis.';
+        }
+
+        return {
+            success: false,
+            error: {
+                type,
+                message,
+                userMessage,
+                timestamp: new Date().toISOString()
+            }
+        };
+    }
+
+    async notifyActiveTab(message) {
+        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+        if (!activeTab?.id) {
+            return;
+        }
+
+        try {
+            await chrome.tabs.sendMessage(activeTab.id, message);
+        } catch (error) {
+            console.debug('No content script response for active tab:', error);
+        }
     }
 
     async getModelInfo() {
-        return {
-            name: 'MesoNet',
-            version: '2.11',
-            architecture: 'CNN',
-            parameters: 28009,
-            size: '0.1 MB',
-            framework: 'PyTorch + ONNX',
-            accuracy: '85-95%',
-            lastUpdated: '2026-03-27'
-        };
+        return this.getSelectedModelInfo();
     }
 
     async getStatistics() {
         const result = await chrome.storage.local.get(['statistics']);
-        return result.statistics || {
-            totalAnalyzed: 0,
-            highRiskCount: 0,
-            lowRiskCount: 0,
-            avgProcessingTime: 0
-        };
+        return result.statistics || this.getEmptyStatistics();
     }
 
     async saveAnalysisResult(result) {
         const data = await chrome.storage.local.get(['analysisHistory', 'statistics']);
-        
-        // Add to history
-        const history = data.analysisHistory || [];
-        history.push(result);
-        
-        // Update statistics
-        const stats = data.statistics || {
-            totalAnalyzed: 0,
-            highRiskCount: 0,
-            lowRiskCount: 0,
-            avgProcessingTime: 0
-        };
-        
-        stats.totalAnalyzed = history.length;
-        stats.highRiskCount = history.filter(r => r.riskScore >= 66).length;
-        stats.lowRiskCount = history.filter(r => r.riskScore < 33).length;
-        
-        if (history.length > 0) {
-            const totalTime = history.reduce((sum, r) => sum + r.processingTime, 0);
-            stats.avgProcessingTime = Math.round(totalTime / history.length);
-        }
+        const history = Array.isArray(data.analysisHistory) ? data.analysisHistory : [];
+        const updatedHistory = [...history, result];
+        const statistics = this.buildStatistics(updatedHistory);
 
-        // Save updated data
         await chrome.storage.local.set({
-            analysisHistory: history,
-            statistics: stats
+            analysisHistory: updatedHistory,
+            statistics
         });
+    }
+
+    buildStatistics(history) {
+        const successfulResults = history.filter((entry) => Number.isFinite(entry.riskScore));
+        const totalProcessingTime = successfulResults.reduce(
+            (sum, entry) => sum + (Number(entry.processingTime) || 0),
+            0
+        );
+
+        return {
+            totalAnalyzed: history.length,
+            highRiskCount: successfulResults.filter((entry) => entry.riskScore >= 66).length,
+            lowRiskCount: successfulResults.filter((entry) => entry.riskScore < 33).length,
+            avgProcessingTime: successfulResults.length
+                ? Math.round(totalProcessingTime / successfulResults.length)
+                : 0
+        };
     }
 
     async exportAnalysisData() {
         const data = await chrome.storage.local.get(['analysisHistory', 'statistics']);
-        
         return {
             timestamp: new Date().toISOString(),
-            statistics: data.statistics || {},
+            statistics: data.statistics || this.getEmptyStatistics(),
             results: data.analysisHistory || []
         };
     }
@@ -185,38 +884,117 @@ class BackgroundService {
     async clearAnalysisData() {
         await chrome.storage.local.set({
             analysisHistory: [],
-            statistics: {
-                totalAnalyzed: 0,
-                highRiskCount: 0,
-                lowRiskCount: 0,
-                avgProcessingTime: 0
-            }
+            statistics: this.getEmptyStatistics()
         });
     }
 
     handleStorageChange(changes, namespace) {
         if (namespace === 'local') {
-            // React to storage changes if needed
+            if (changes.modelKey) {
+                const nextModelKey = this.normalizeModelKey(changes.modelKey.newValue);
+                if (this.selectedModelKey !== nextModelKey) {
+                    this.selectedModelKey = nextModelKey;
+                    this.modelInfo = this.getSelectedModelInfo();
+                    this.resetModelSession();
+                }
+            }
             console.log('Storage changed:', changes);
         }
     }
 
-    generateExplanation() {
-        const explanations = [
-            "The model detected subtle inconsistencies in facial features that are characteristic of synthetic media generation.",
-            "Analysis reveals unnatural lighting patterns and texture artifacts commonly found in AI-generated content.",
-            "The media shows signs of digital manipulation, particularly around facial regions and background elements.",
-            "Facial symmetry analysis and micro-expression patterns suggest potential synthetic origin.",
-            "Technical artifacts in the compression and rendering pipeline indicate possible deepfake generation."
-        ];
-        
-        return explanations[Math.floor(Math.random() * explanations.length)];
+    async getWhitelistedDomains() {
+        const { whitelistedDomains = [] } = await chrome.storage.local.get(['whitelistedDomains']);
+        return whitelistedDomains;
     }
 
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
+    async addDomainToWhitelist(domain) {
+        if (!domain) {
+            return;
+        }
+
+        const domains = await this.getWhitelistedDomains();
+        if (domains.includes(domain)) {
+            return;
+        }
+
+        await chrome.storage.local.set({
+            whitelistedDomains: [...domains, domain]
+        });
+    }
+
+    async removeDomainFromWhitelist(domain) {
+        const domains = await this.getWhitelistedDomains();
+        await chrome.storage.local.set({
+            whitelistedDomains: domains.filter((entry) => entry !== domain)
+        });
+    }
+
+    async isDomainWhitelisted(domain) {
+        if (!domain) {
+            return false;
+        }
+
+        const domains = await this.getWhitelistedDomains();
+        return domains.includes(domain);
+    }
+
+    generateExplanation(riskScore, sensitivity) {
+        const bands = {
+            low: [
+                'The model found mostly natural feature patterns and low synthetic signal.',
+                'Only weak deepfake indicators were detected in this media.',
+                'The prediction stayed near the authentic range for the chosen sensitivity.'
+            ],
+            medium: [
+                'The model found mixed signals, so this media warrants closer review.',
+                'Several artifacts were detected, but not enough for a high-risk result.',
+                'This result is uncertain. The image is close to the line between likely real and likely manipulated. You can try increasing the sensitivity for a stricter check.'
+            ],
+            high: [
+                'The model found strong synthetic indicators in the analyzed frame.',
+                'Multiple learned features matched the deepfake pattern at this sensitivity.',
+                'The result is well above the current decision threshold for likely manipulation.'
+            ]
+        };
+
+        let group = 'low';
+        if (riskScore >= 66) {
+            group = 'high';
+        } else if (riskScore >= 33) {
+            group = 'medium';
+        }
+
+        const explanations = bands[group];
+        const index = sensitivity % explanations.length;
+        return explanations[index];
+    }
+
+    calculateSensitivityThreshold(sensitivity) {
+        return 1 - (sensitivity / 100);
+    }
+
+    applySensitivityToModelOutput(baseOutput, sensitivity) {
+        const threshold = this.calculateSensitivityThreshold(sensitivity);
+
+        if (baseOutput > threshold) {
+            const excess = baseOutput - threshold;
+            const maxExcess = Math.max(0.0001, 1 - threshold);
+            return Math.max(0, Math.min(100, 50 + (excess / maxExcess) * 50));
+        }
+
+        const normalized = threshold <= 0 ? 1 : baseOutput / threshold;
+        return Math.max(0, Math.min(100, normalized * 50));
+    }
+
+    calculateConfidence(baseOutput, threshold) {
+        const distance = Math.abs(baseOutput - threshold);
+        const maxDistance = Math.max(threshold, 1 - threshold, 0.0001);
+        const normalizedDistance = distance / maxDistance;
+
+        // Give clearer separation between borderline and decisive results.
+        const curvedDistance = Math.pow(normalizedDistance, 0.7);
+        return Math.max(50, Math.min(99, 50 + curvedDistance * 49));
     }
 }
 
-// Initialize background service
 new BackgroundService();

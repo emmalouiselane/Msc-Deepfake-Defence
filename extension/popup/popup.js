@@ -1,6 +1,10 @@
 // Deepfake Detection Extension - Popup Script
 class DeepfakeDetector {
     constructor() {
+        this.isExtensionReady = false;
+        this.maxRetries = 3;
+        this.draggingSlider = false;
+
         this.initializeElements();
         this.attachEventListeners();
     }
@@ -13,223 +17,259 @@ class DeepfakeDetector {
         this.sliderTrack = document.getElementById('sliderTrack');
         this.sliderThumb = document.getElementById('sliderThumb');
         this.statusSection = document.getElementById('statusText');
-        
-        // Detection mode elements
         this.manualMode = document.getElementById('manualMode');
         this.automaticMode = document.getElementById('automaticMode');
         this.modeSection = document.querySelector('.mode-section');
+        this.modelSelect = document.getElementById('modelSelect');
+        this.modelHelpText = document.getElementById('modelHelpText');
     }
 
     attachEventListeners() {
-        // Button events
-        this.openNewTabBtn.addEventListener('click', this.openNewTab.bind(this));
-        this.btnToggle.addEventListener('change', this.handleToggle.bind(this));
-        this.sensitivitySlider.addEventListener('input', this.handleSensitivity.bind(this));
-        
-        // Detection mode events
-        this.manualMode.addEventListener('change', this.handleDetectionMode.bind(this));
-        this.automaticMode.addEventListener('change', this.handleDetectionMode.bind(this));
-        
-        // Custom slider events
-        this.customSlider.addEventListener('click', this.handleSliderClick.bind(this));
-        this.sliderThumb.addEventListener('mousedown', this.handleThumbMouseDown.bind(this));
-    }
+        this.openNewTabBtn.addEventListener('click', () => this.openNewTab());
+        this.btnToggle.addEventListener('change', () => this.handleToggle());
+        this.sensitivitySlider.addEventListener('input', (event) => this.handleSensitivity(event.target.value));
+        this.manualMode.addEventListener('change', () => this.handleDetectionMode());
+        this.automaticMode.addEventListener('change', () => this.handleDetectionMode());
+        this.modelSelect.addEventListener('change', (event) => this.handleModelSelection(event.target.value));
 
-    handleDetectionMode() {
-        const mode = this.manualMode.checked ? 'manual' : 'automatic';
-        
-        // Save detection mode to storage
-        chrome.storage.local.set({ detectionMode: mode });
-        
-        // Send message to content script to update mode
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, {
-                    action: 'updateDetectionMode',
-                    mode: mode
-                });
+        this.customSlider.addEventListener('click', (event) => this.handleSliderPointer(event));
+        this.sliderThumb.addEventListener('mousedown', () => {
+            this.draggingSlider = true;
+        });
+
+        document.addEventListener('mousemove', (event) => {
+            if (this.draggingSlider) {
+                this.handleSliderPointer(event);
             }
         });
-        
-        console.log(`Deepfake Detection: Detection mode changed to ${mode}`);
+
+        document.addEventListener('mouseup', () => {
+            this.draggingSlider = false;
+        });
+
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace === 'local') {
+                this.handleStorageChanges(changes);
+            }
+        });
     }
 
-    handleSliderClick(e) {
-        if (this.btnToggle.checked) {
-            const rect = this.customSlider.getBoundingClientRect();
-            const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-            this.updateSlider(percent);
-            this.sensitivitySlider.value = percent;
-            this.handleSensitivity();
+    async checkExtensionReady() {
+        if (this.isExtensionReady) {
+            return true;
+        }
+
+        try {
+            const response = await chrome.runtime.sendMessage({ action: 'ping' });
+            this.isExtensionReady = Boolean(response?.success);
+            return this.isExtensionReady;
+        } catch (error) {
+            console.error('Deepfake Detection: Failed to ping background:', error);
+            return false;
         }
     }
 
-    handleThumbMouseDown(e) {
-        if (!this.btnToggle.checked) {
-            e.preventDefault();
+    async sendMessageWithRetry(action, payload = {}) {
+        for (let attempt = 1; attempt <= this.maxRetries; attempt += 1) {
+            try {
+                const isReady = await this.checkExtensionReady();
+                if (!isReady) {
+                    throw new Error('Background worker is not ready');
+                }
+
+                const response = await chrome.runtime.sendMessage({
+                    action,
+                    ...payload
+                });
+
+                if (!response?.success) {
+                    throw new Error(response?.error?.message || 'Request failed');
+                }
+
+                return response;
+            } catch (error) {
+                console.error(`Deepfake Detection: Popup message failed (attempt ${attempt}):`, error);
+                if (attempt === this.maxRetries) {
+                    this.showError('Extension not responding. Reload the extension.');
+                    return null;
+                }
+
+                await new Promise((resolve) => setTimeout(resolve, 250));
+            }
+        }
+
+        return null;
+    }
+
+    async handleToggle() {
+        const isEnabled = this.btnToggle.checked;
+
+        await chrome.storage.local.set({ detectionEnabled: isEnabled });
+        this.setSliderState(isEnabled);
+        this.setDetectionModeState(isEnabled);
+        this.updateStatus(isEnabled);
+        await this.sendMessageWithRetry('toggleDetection', { enabled: isEnabled });
+    }
+
+    async handleSensitivity(value) {
+        const sensitivity = this.normalizeSensitivity(value);
+        this.updateSlider(sensitivity);
+        await chrome.storage.local.set({ sensitivity });
+        await this.sendMessageWithRetry('updateSensitivity', { sensitivity });
+    }
+
+    async handleDetectionMode() {
+        const mode = 'manual';
+        this.manualMode.checked = true;
+        this.automaticMode.checked = false;
+        await chrome.storage.local.set({ detectionMode: mode });
+        this.updateStatus(this.btnToggle.checked);
+        await this.sendMessageWithRetry('updateDetectionMode', { mode });
+    }
+
+    async handleModelSelection(value) {
+        const modelKey = this.normalizeModelKey(value);
+        this.modelSelect.value = modelKey;
+        this.updateModelHelp(modelKey);
+
+        await chrome.storage.local.set({ modelKey });
+        const response = await this.sendMessageWithRetry('updateModelType', { modelKey });
+        if (!response) {
             return;
         }
-        
-        e.preventDefault();
-        const handleMouseMove = (e) => {
-            const rect = this.customSlider.getBoundingClientRect();
-            const percent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-            this.updateSlider(percent);
-            this.sensitivitySlider.value = percent;
-            this.handleSensitivity();
-        };
 
-        const handleMouseUp = () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-        };
+        this.modelSelect.value = this.normalizeModelKey(response.modelKey);
+        this.updateModelHelp(this.modelSelect.value);
+    }
 
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
+    handleSliderPointer(event) {
+        if (!this.btnToggle.checked) {
+            return;
+        }
+
+        const rect = this.customSlider.getBoundingClientRect();
+        const ratio = (event.clientX - rect.left) / rect.width;
+        const sensitivity = this.normalizeSensitivity(Math.round(ratio * 100));
+        this.handleSensitivity(sensitivity);
+    }
+
+    normalizeSensitivity(value) {
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) {
+            return 50;
+        }
+
+        return Math.max(0, Math.min(100, Math.round(parsed)));
+    }
+
+    normalizeModelKey(value) {
+        return value === 'mesonet' ? 'mesonet' : 'lightweight';
     }
 
     updateSlider(percent) {
         this.sliderTrack.style.width = `${percent}%`;
         this.sliderThumb.style.left = `${percent}%`;
+        this.sensitivitySlider.value = String(percent);
     }
 
     setSliderState(enabled) {
-        if (enabled) {
-            this.customSlider.classList.remove('disabled');
-            this.sliderThumb.style.cursor = 'pointer';
-            this.customSlider.style.cursor = 'pointer';
-        } else {
-            this.customSlider.classList.add('disabled');
-            this.sliderThumb.style.cursor = 'not-allowed';
-            this.customSlider.style.cursor = 'not-allowed';
-        }
+        this.customSlider.classList.toggle('disabled', !enabled);
+        this.sliderThumb.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        this.customSlider.style.cursor = enabled ? 'pointer' : 'not-allowed';
     }
 
     setDetectionModeState(enabled) {
-        if (enabled) {
-            this.manualMode.disabled = false;
-            this.automaticMode.disabled = false;
-            this.manualMode.parentElement.style.cursor = 'pointer';
-            this.automaticMode.parentElement.style.cursor = 'pointer';
-            this.modeSection.classList.remove('disabled');
-        } else {
-            this.manualMode.disabled = true;
-            this.automaticMode.disabled = true;
-            this.manualMode.parentElement.style.cursor = 'not-allowed';
-            this.automaticMode.parentElement.style.cursor = 'not-allowed';
-            this.modeSection.classList.add('disabled');
+        this.manualMode.disabled = !enabled;
+        this.automaticMode.disabled = true;
+        this.modeSection.classList.toggle('disabled', !enabled);
+        this.manualMode.parentElement.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        this.automaticMode.parentElement.style.cursor = 'not-allowed';
+    }
+
+    updateModelHelp(modelKey) {
+        if (modelKey === 'mesonet') {
+            this.modelHelpText.textContent = 'MesoNet is heavier and slower, but it is the stronger research path when a trained export is available.';
+            return;
+        }
+
+        this.modelHelpText.textContent = 'Lightweight is faster. MesoNet is heavier but intended to be more capable.';
+    }
+
+    updateStatus(isEnabled) {
+        if (!isEnabled) {
+            this.statusSection.textContent = 'Detection disabled';
+            this.statusSection.style.color = '#dc3545';
+            return;
+        }
+
+        const mode = 'manual';
+        this.statusSection.textContent = `Detection enabled (${mode} mode)`;
+        this.statusSection.style.color = '#28a745';
+    }
+
+    showError(message) {
+        this.statusSection.textContent = `Error: ${message}`;
+        this.statusSection.style.color = '#dc3545';
+    }
+
+    handleStorageChanges(changes) {
+        if (changes.detectionEnabled) {
+            const enabled = Boolean(changes.detectionEnabled.newValue);
+            this.btnToggle.checked = enabled;
+            this.setSliderState(enabled);
+            this.setDetectionModeState(enabled);
+            this.updateStatus(enabled);
+        }
+
+        if (changes.sensitivity) {
+            this.updateSlider(this.normalizeSensitivity(changes.sensitivity.newValue));
+        }
+
+        if (changes.detectionMode) {
+            this.manualMode.checked = true;
+            this.automaticMode.checked = false;
+            this.updateStatus(this.btnToggle.checked);
+        }
+
+        if (changes.modelKey) {
+            const modelKey = this.normalizeModelKey(changes.modelKey.newValue);
+            this.modelSelect.value = modelKey;
+            this.updateModelHelp(modelKey);
         }
     }
 
     openNewTab() {
-        // Open the new tab analysis page
         chrome.tabs.create({ url: chrome.runtime.getURL('newtab/newtab.html') });
-    }
-
-    handleToggle() {
-        const isEnabled = this.btnToggle.checked;
-        // Save toggle state to storage
-        chrome.storage.local.set({ detectionEnabled: isEnabled });
-        
-        // Update slider state
-        this.setSliderState(isEnabled);
-        
-        // Update detection mode state
-        this.setDetectionModeState(isEnabled);
-        
-        // Update status display
-        this.updateStatus(isEnabled);
-        
-        // Send message to content script to enable/disable detection
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, {
-                    action: 'toggleDetection',
-                    enabled: isEnabled
-                });
-            }
-        });
-    }
-
-    handleSensitivity() {
-        const sensitivity = this.sensitivitySlider.value;
-        this.updateSlider(sensitivity);
-        
-        // Save sensitivity to storage
-        chrome.storage.local.set({ sensitivity: sensitivity });
-        
-        // Send message to update sensitivity
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs[0]) {
-                chrome.tabs.sendMessage(tabs[0].id, {
-                    action: 'updateSensitivity',
-                    sensitivity: sensitivity
-                });
-            }
-        });
-    }
-
-    updateStatus(isEnabled) {
-        if (isEnabled) {
-            this.statusSection.textContent = 'Actively monitoring media';
-            this.statusSection.style.color = '#66005f';
-        } else {
-            this.statusSection.textContent = 'Disabled';
-            this.statusSection.style.color = '#666';
-        }
     }
 
     async loadSettings() {
         try {
-            // Load saved settings
-            const result = await chrome.storage.local.get(['detectionEnabled', 'sensitivity', 'detectionMode']);
-            
-            // Set defaults if no saved settings exist
-            const isEnabled = result.detectionEnabled !== undefined ? result.detectionEnabled : false;
-            const sensitivity = result.sensitivity !== undefined ? result.sensitivity : 50;
-            const detectionMode = result.detectionMode !== undefined ? result.detectionMode : 'manual';
-            
-            // Initialize toggle state
-            this.btnToggle.checked = isEnabled;
-            
-            // Initialize slider state
-            this.sensitivitySlider.value = sensitivity;
-            this.updateSlider(sensitivity);
-            
-            // Initialize detection mode
-            if (detectionMode === 'manual') {
-                this.manualMode.checked = true;
-            } else {
-                this.automaticMode.checked = true;
-            }
-            
-            // Set slider state based on toggle
-            this.setSliderState(isEnabled);
-            
-            // Set detection mode state based on toggle
-            this.setDetectionModeState(isEnabled);
-            
-            // Update status display
-            this.updateStatus(isEnabled);
-            
-            console.log('Settings loaded:', { detectionEnabled: isEnabled, sensitivity, detectionMode });
-            
-        } catch (error) {
-            console.error('Error loading settings:', error);
-            // Set defaults on error
-            this.btnToggle.checked = false;
-            this.sensitivitySlider.value = 50;
-            this.updateSlider(50);
+            const defaults = {
+                detectionEnabled: false,
+                sensitivity: 50,
+                detectionMode: 'manual',
+                modelKey: 'lightweight'
+            };
+            const result = await chrome.storage.local.get(Object.keys(defaults));
+            const settings = { ...defaults, ...result };
+
+            this.btnToggle.checked = Boolean(settings.detectionEnabled);
             this.manualMode.checked = true;
-            this.setSliderState(false);
-            this.setDetectionModeState(false);
-            this.updateStatus(false);
+            this.automaticMode.checked = false;
+            this.modelSelect.value = this.normalizeModelKey(settings.modelKey);
+            this.updateModelHelp(this.modelSelect.value);
+            this.updateSlider(this.normalizeSensitivity(settings.sensitivity));
+            this.setSliderState(this.btnToggle.checked);
+            this.setDetectionModeState(this.btnToggle.checked);
+            this.updateStatus(this.btnToggle.checked);
+        } catch (error) {
+            console.error('Deepfake Detection: Failed to load settings:', error);
+            this.showError('Could not load settings');
         }
     }
 }
 
-// Initialize the detector when popup is loaded
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const detector = new DeepfakeDetector();
-    detector.loadSettings();
+    await detector.loadSettings();
 });

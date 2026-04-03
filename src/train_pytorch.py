@@ -4,6 +4,8 @@ Works with Python 3.14 and modern PyTorch
 """
 
 import os
+import shutil
+import argparse
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -292,6 +294,27 @@ def export_to_onnx(model, model_type):
     except Exception as e:
         print(f"❌ ONNX export failed: {e}")
 
+def copy_model_to_extension(model_type):
+    """Copy exported ONNX artifacts into the extension models directory."""
+    source_dir = Path('models')
+    extension_dir = Path('extension/models')
+    extension_dir.mkdir(parents=True, exist_ok=True)
+
+    copied_files = []
+    for suffix in ('.onnx', '.onnx.data'):
+        source = source_dir / f'{model_type}_model{suffix}'
+        if source.exists():
+            destination = extension_dir / source.name
+            shutil.copy2(source, destination)
+            copied_files.append(str(destination))
+
+    if copied_files:
+        print('📦 Copied model artifacts to extension:')
+        for path in copied_files:
+            print(f'   {path}')
+    else:
+        print(f'⚠️ No exported ONNX artifacts found for {model_type} in models/.')
+
 def quick_test():
     """Quick test with synthetic data"""
     print("🧪 Running quick test with synthetic data...")
@@ -312,30 +335,42 @@ def quick_test():
 
 def main():
     """Main training function"""
-    
-    # Check if dataset exists
-    data_dir = "data/processed/sample"
-    
-    if not os.path.exists(data_dir):
+
+    parser = argparse.ArgumentParser(description='Train and export a deepfake detection model.')
+    parser.add_argument('--model-type', choices=['lightweight', 'mesonet'], default='mesonet')
+    parser.add_argument('--data-dir', default='data/processed/sample')
+    parser.add_argument('--epochs', type=int, default=20)
+    parser.add_argument('--batch-size', type=int, default=32)
+    parser.add_argument('--learning-rate', type=float, default=0.001)
+    parser.add_argument('--create-sample-data', action='store_true')
+    parser.add_argument('--sample-count', type=int, default=200)
+    parser.add_argument('--copy-to-extension', action='store_true')
+    parser.add_argument('mode', nargs='?', default='')
+    args = parser.parse_args()
+
+    if args.mode == 'test':
+        quick_test()
+        return
+
+    data_dir = args.data_dir
+
+    if args.create_sample_data or not os.path.exists(data_dir):
         print("📁 Dataset not found. Creating sample dataset...")
-        create_sample_dataset(data_dir, num_samples=200)
-    
-    # Train model
-    model, history, results = train_model(
+        create_sample_dataset(data_dir, num_samples=args.sample_count)
+
+    train_model(
         data_dir,
-        model_type='lightweight',  # or 'mesonet'
-        epochs=20,
-        batch_size=32,
-        learning_rate=0.001
+        model_type=args.model_type,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate
     )
-    
+
+    if args.copy_to_extension:
+        copy_model_to_extension(args.model_type)
+
     print("🎉 Training completed!")
     print("📂 Check 'models/' directory for saved model and results")
 
 if __name__ == "__main__":
-    import sys
-    
-    if len(sys.argv) > 1 and sys.argv[1] == 'test':
-        quick_test()
-    else:
-        main()
+    main()

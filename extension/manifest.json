@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Deepfake Detection",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Browser extension for detecting deepfake media with on-device processing",
   "icons": {
     "16": "icons/icon16.png",
@@ -11,10 +11,10 @@
   },
   
   "permissions": [
+    "activeTab",
     "storage",
-    "activeTab"
-  ],
-  
+    "scripting"
+  ],  
   "host_permissions": [
     "http://*/*",
     "https://*/*"
@@ -32,7 +32,8 @@
   },
   
   "background": {
-    "service_worker": "background/background.js"
+    "service_worker": "background/background.js",
+    "type": "module"
   },
   
   "content_scripts": [
@@ -47,13 +48,23 @@
     {
       "resources": [
         "models/*.onnx",
-        "assets/*"
+        "models/*.data",
+        "models/ort.min.js",
+        "dist/ort.min.js",
+        "dist/ort.wasm.min.js",
+        "dist/*.wasm",
+        "dist/*.mjs",
+        "dist/onnx-worker.js",
+        "models/onnx-inference.js",
+        "models/onnx-worker.js",
+        "assets/*",
+        "wasm/*.wasm"
       ],
       "matches": ["http://*/*", "https://*/*"]
     }
   ],
   
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://cdn.jsdelivr.net"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' blob: https://ichef.bbci.co.uk https://*.bbc.co.uk https://*.bbci.co.uk https://cdn.syndication.twimg.com https://connect.facebook.net https://platform.twitter.com https://public.flourish.studio https://static.chartbeat.com https://www.google-analytics.com https://www.tiktok.com https://lf16-tiktok-web.ttwstatic.com https://www.ons.gov.uk https://bitesize.files.bbci.co.uk https://emp.bbci.co.uk https://mybbc-analytics.files.bbci.co.uk https://news.files.bbci.co.uk https://static.bbc.co.uk https://static2.chartbeat.com https://*.cdninstagram.com https://*.instagram.com"
   }
 }

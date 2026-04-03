@@ -74,12 +74,10 @@ class ContentScript {
 
     findMediaElements() {
         const images = document.querySelectorAll('img[src]');
-        const videos = document.querySelectorAll('video[src]');
         const videoPosters = document.querySelectorAll('video[poster]');
-        
+
         const mediaElements = [
             ...Array.from(images).map(img => ({ src: img.src, element: img, type: 'image' })),
-            ...Array.from(videos).map(video => ({ src: video.src, element: video, type: 'video' })),
             ...Array.from(videoPosters).map(video => ({
                 src: video.poster,
                 element: video,
@@ -87,11 +85,46 @@ class ContentScript {
             }))
         ].filter(media => {
             // Check if media has valid source and element exists
-            return this.isValidMediaUrl(media.src) && media.element && document.contains(media.element);
+            return (
+                this.isValidMediaUrl(media.src) &&
+                media.element &&
+                document.contains(media.element) &&
+                !this.isExtensionOwnedElement(media.element)
+            );
         });
-        
-        console.log(`Deepfake Detection: Found ${mediaElements.length} valid media elements`);
-        return mediaElements;
+
+        const dedupedMediaElements = [];
+        const seenElements = new WeakSet();
+        const seenKeys = new Set();
+
+        mediaElements.forEach((media) => {
+            if (seenElements.has(media.element)) {
+                return;
+            }
+
+            const key = `${media.type}:${media.src}`;
+            if (seenKeys.has(key)) {
+                return;
+            }
+
+            seenElements.add(media.element);
+            seenKeys.add(key);
+            dedupedMediaElements.push(media);
+        });
+
+        console.log(`Deepfake Detection: Found ${dedupedMediaElements.length} valid media elements`);
+        return dedupedMediaElements;
+    }
+
+    isExtensionOwnedElement(element) {
+        return Boolean(
+            element.closest('#deepfake-detector-button') ||
+            element.closest('.media-selector-overlay') ||
+            element.closest('.media-selector-modal') ||
+            element.closest('.deepfake-container') ||
+            element.closest('.deepfake-loading-overlay') ||
+            element.closest('.deepfake-error-overlay')
+        );
     }
 
     isValidMediaUrl(url) {
@@ -737,22 +770,116 @@ class ContentScript {
         return filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
     }
 
+    buildAnalysisRequest(media) {
+        return {
+            src: media.src,
+            type: media.type || 'image',
+            element: media.element?.tagName?.toLowerCase() || 'img',
+            sensitivity: this.sensitivity,
+            captureBounds: this.getCaptureBounds(media.element)
+        };
+    }
+
+    getCaptureBounds(element) {
+        if (!element || typeof element.getBoundingClientRect !== 'function') {
+            return null;
+        }
+
+        const rect = element.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) {
+            return null;
+        }
+
+        return {
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+            devicePixelRatio: window.devicePixelRatio || 1
+        };
+    }
+
+    async ensureMediaVisible(element) {
+        if (!element || typeof element.scrollIntoView !== 'function') {
+            return;
+        }
+
+        const rect = element.getBoundingClientRect();
+        const isVisible =
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= window.innerHeight &&
+            rect.right <= window.innerWidth;
+
+        if (!isVisible) {
+            element.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center',
+                inline: 'center'
+            });
+
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        } else {
+            await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+        }
+    }
+
+    logAnalysisResult(media, result) {
+        console.group('Deepfake Detection: Analysis Result');
+        console.log('Source', media?.src || 'unknown');
+        console.log('Type', media?.type || 'image');
+        console.log('Risk Score', result?.riskScore);
+        console.log('Confidence', result?.confidence);
+        console.log('Explanation', result?.explanation);
+        console.log('Technical Details', result?.technicalDetails || {});
+        console.log('Capture Debug', result?.debug?.capture || {});
+        console.log('Preprocess Debug', result?.debug?.preprocess || {});
+        this.logPreviewImage('Captured crop', result?.debug?.preprocess?.preview?.original);
+        this.logPreviewImage('Resized model input (128x128)', result?.debug?.preprocess?.preview?.resized);
+        console.log('Full Result', result);
+        console.groupEnd();
+    }
+
+    logPreviewImage(label, dataUrl) {
+        if (!dataUrl) {
+            return;
+        }
+
+        console.log(label);
+        console.log('%c ', `
+            font-size: 1px;
+            padding: 96px 96px;
+            background-image: url("${dataUrl}");
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-color: #f3f4f6;
+            border: 1px solid #d1d5db;
+            line-height: 1;
+        `);
+    }
+
     async analyzeMedia(media) {
         try {
-            // Send analysis request to background script
+            // Check if Chrome APIs are available
+            if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+                throw new Error('Chrome APIs not available. Please refresh the page and try again.');
+            }
+
+            await this.ensureMediaVisible(media.element);
+            
+            // Send analysis request to background script with current sensitivity
             const response = await chrome.runtime.sendMessage({
                 action: 'analyzeMedia',
-                data: {
-                    src: media.src,
-                    type: media.type || 'image',
-                    element: media.element?.tagName?.toLowerCase() || 'img'
-                }
+                data: this.buildAnalysisRequest(media)
             });
             
             if (response.success) {
+                this.logAnalysisResult(media, response.result);
                 this.showAnalysisResult(response.result);
             } else {
-                this.showError('Analysis failed: ' + response.error);
+                // Show user-friendly error message
+                this.showError(response.error?.userMessage || 'Analysis failed. Please try again.');
             }
         } catch (error) {
             console.error('Analysis error:', error);
@@ -777,38 +904,52 @@ class ContentScript {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         `;
         
-        const riskLevel = this.getRiskLevel(result.riskScore);
+        // Handle both success and error cases
+        const isError = !result || result.success === false;
+        const riskScore = isError ? 0 : (result.riskScore || 0);
+        const confidence = isError ? 0 : (result.confidence || 0);
+        
+        const riskLevel = this.getRiskLevel(riskScore);
         
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <div style="font-size: 24px;">${riskLevel.icon}</div>
+                <div style="font-size: 24px;">${isError ? '⚠️' : riskLevel.icon}</div>
                 <div>
-                    <div style="font-weight: 600; color: ${riskLevel.color};">
-                        ${riskLevel.label}
+                    <div style="font-weight: 600; color: ${isError ? '#dc3545' : riskLevel.color}; margin-bottom: 4px;">
+                        ${isError ? 'Analysis Failed' : riskLevel.label}
                     </div>
-                    <div style="font-size: 12px; color: #666;">
-                        Confidence: ${result.confidence.toFixed(1)}%
+                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
+                        ${isError ? (result.error?.userMessage || 'An error occurred during analysis') : `Confidence: ${confidence.toFixed(1)}%`}
                     </div>
+                    ${!isError ? `
+                    <div style="font-size: 14px; color: #333; line-height: 1.4;">
+                        ${result.explanation || 'Analysis completed successfully.'}
+                    </div>
+                    ` : ''}
                 </div>
             </div>
-            <div style="font-size: 14px; color: #333; line-height: 1.4;">
-                ${result.explanation}
-            </div>
             <div style="margin-top: 12px; text-align: right;">
-                <button onclick="this.parentElement.parentElement.remove()" style="background: #667eea; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                <button class="deepfake-notification-close" style="background: #667eea; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">
                     Close
                 </button>
             </div>
         `;
         
         document.body.appendChild(notification);
+        const closeButton = notification.querySelector('.deepfake-notification-close');
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                notification.remove();
+            });
+        }
         
-        // Auto-remove after 10 seconds
+        // Auto-remove after 10 seconds for errors, 15 seconds for success
+        const timeout = isError ? 10000 : 15000;
         setTimeout(() => {
             if (notification.parentElement) {
                 notification.remove();
             }
-        }, 10000);
+        }, timeout);
     }
 
     getRiskLevel(score) {
@@ -874,10 +1015,6 @@ class ContentScript {
                     this.createFloatingButton();
                 }
                 
-                // Add overlays if in automatic mode
-                if (this.isEnabled && this.detectionMode === 'automatic') {
-                    this.addOverlaysToAllMedia();
-                }
             }
         });
 
@@ -917,30 +1054,16 @@ class ContentScript {
     }
 
     updateDetectionMode(mode) {
-        console.log(`Deepfake Detection: Updating detection mode to ${mode}`);
-        this.detectionMode = mode;
+        console.log(`Deepfake Detection: Updating detection mode to ${mode} (automatic analysis temporarily disabled)`);
+        this.detectionMode = 'manual';
         
         // Re-apply overlays based on new mode
         if (this.isEnabled) {
             this.removeAllOverlays();
-            
-            if (mode === 'automatic') {
-                console.log('Deepfake Detection: Switching to automatic mode - removing floating button and adding overlays');
-                // Remove floating button for automatic mode
-                if (this.floatingButton) {
-                    this.floatingButton.remove();
-                    this.floatingButton = null;
-                }
-                // Add automatic overlays
-                this.addOverlaysToAllMedia();
-            } else {
-                console.log('Deepfake Detection: Switching to manual mode - creating floating button and removing overlays');
-                // Remove overlays for manual mode
-                this.removeAllOverlays();
-                // Create floating button for manual mode
-                if (!this.floatingButton && this.mediaElements.length > 0) {
-                    this.createFloatingButton();
-                }
+
+            console.log('Deepfake Detection: Keeping manual mode active');
+            if (!this.floatingButton && this.mediaElements.length > 0) {
+                this.createFloatingButton();
             }
         }
     }
@@ -954,16 +1077,6 @@ class ContentScript {
             if (this.detectionMode === 'manual' && !this.floatingButton) {
                 console.log('Deepfake Detection: Creating floating button for manual mode');
                 this.createFloatingButton();
-            } else if (this.detectionMode === 'automatic' && this.floatingButton) {
-                console.log('Deepfake Detection: Removing floating button for automatic mode');
-                this.floatingButton.remove();
-                this.floatingButton = null;
-            }
-            
-            // Add overlays based on detection mode
-            if (this.detectionMode === 'automatic') {
-                console.log('Deepfake Detection: Adding automatic overlays');
-                this.addOverlaysToAllMedia();
             }
         } else if (!enabled) {
             console.log('Deepfake Detection: Hiding floating button and removing overlays');
@@ -977,39 +1090,336 @@ class ContentScript {
         }
     }
 
-    addOverlaysToAllMedia() {
+    async addOverlaysToAllMedia() {
         console.log(`Deepfake Detection: Adding overlays to ${this.mediaElements.length} media elements`);
-        this.mediaElements.forEach((media, index) => {
+        
+        // Note: We no longer initialize model in content script since it's handled in background
+        for (let index = 0; index < this.mediaElements.length; index++) {
+            const media = this.mediaElements[index];
+            
             // Check if element still exists in DOM
             if (!media.element || !document.contains(media.element)) {
                 console.warn(`Deepfake Detection: Skipping element ${index} - no longer in DOM`);
-                return;
+                continue;
             }
             
             // Check if overlay already exists
             if (this.overlays.has(media.element)) {
                 console.log(`Deepfake Detection: Overlay already exists for element ${index}`);
-                return;
+                continue;
             }
             
-            // Simulate analysis result
-            const mockResult = {
-                riskScore: Math.random() * 100,
-                confidence: 70 + Math.random() * 25
-            };
-            console.log(`Deepfake Detection: Creating overlay for element ${index}`);
-            this.createOverlay(media.element, mockResult);
+            try {
+                // For automatic mode, we'll show a loading indicator first
+                const loadingOverlay = this.createLoadingOverlay(media.element);
+                
+                try {
+                // Check if Chrome APIs are available
+                if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+                    this.createErrorOverlay(media.element, 'Chrome APIs not available. Please refresh the page and try again.');
+                    return;
+                }
+                
+                // Send analysis request to background script
+                const response = await chrome.runtime.sendMessage({
+                    action: 'analyzeMedia',
+                    data: this.buildAnalysisRequest(media)
+                });
+                
+                // Remove loading overlay
+                if (loadingOverlay && loadingOverlay.parentNode) {
+                    loadingOverlay.remove();
+                }
+                
+                if (response.success) {
+                    console.log(`Deepfake Detection: Creating overlay for element ${index} with sensitivity ${this.sensitivity}`);
+                    this.createOverlay(media.element, response.result);
+                } else {
+                    // Show user-friendly error on the media element itself
+                    this.createErrorOverlay(media.element, response.error?.userMessage || 'Analysis failed');
+                }
+            } catch (error) {
+                console.error(`Deepfake Detection: Failed to analyze element ${index}:`, error);
+                
+                // Remove loading overlay if it exists
+                if (loadingOverlay && loadingOverlay.parentNode) {
+                    loadingOverlay.remove();
+                }
+                
+                // Show error on the media element itself
+                this.createErrorOverlay(media.element, 'Analysis failed. Please try again.');
+            }
+        } catch (error) {
+            console.error(`Deepfake Detection: Failed to analyze element ${index}:`, error);
+            
+            // Remove loading overlay if it exists
+            if (loadingOverlay && loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+            }
+            
+            // Show error on the media element itself
+            this.createErrorOverlay(media.element, 'Analysis failed. Please try again.');
+        }
+        }
+    }
+
+    createLoadingOverlay(element) {
+        const container = document.createElement('div');
+        container.className = 'deepfake-loading-overlay';
+        container.innerHTML = `
+            <div class="deepfake-loading-spinner"></div>
+            <div class="deepfake-loading-text">Analyzing...</div>
+        `;
+        
+        // Style the loading overlay
+        container.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+        
+        // Wrap element and add overlay
+        const wrapper = document.createElement('div');
+        wrapper.className = 'deepfake-container';
+        wrapper.style.position = 'relative';
+        wrapper.style.display = 'inline-block';
+        
+        element.parentNode.insertBefore(wrapper, element);
+        wrapper.appendChild(element);
+        wrapper.appendChild(container);
+        
+        return container;
+    }
+
+    createErrorOverlay(element, errorMessage) {
+        const errorContainer = document.createElement('div');
+        errorContainer.className = 'deepfake-error-overlay';
+        errorContainer.innerHTML = `
+            <div class="deepfake-error-icon">⚠️</div>
+            <div class="deepfake-error-text">${errorMessage}</div>
+        `;
+        
+        // Style the error overlay
+        errorContainer.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+        
+        // Add error overlay styles
+        if (!document.querySelector('#deepfake-error-styles')) {
+            const style = document.createElement('style');
+            style.id = 'deepfake-error-styles';
+            style.textContent = `
+                .deepfake-error-overlay {
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                }
+                .deepfake-container:hover .deepfake-error-overlay {
+                    opacity: 1;
+                }
+                .deepfake-error-icon {
+                    font-size: 24px;
+                    margin-bottom: 8px;
+                }
+                .deepfake-error-text {
+                    font-size: 14px;
+                    font-weight: 600;
+                    text-align: center;
+                    max-width: 80%;
+                    line-height: 1.4;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Find or create wrapper
+        let parentContainer = element.parentNode;
+        if (!parentContainer || !parentContainer.classList.contains('deepfake-container')) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'deepfake-container';
+            wrapper.style.position = 'relative';
+            wrapper.style.display = 'inline-block';
+            
+            element.parentNode.insertBefore(wrapper, element);
+            wrapper.appendChild(element);
+            parentContainer = wrapper;
+        }
+        
+        parentContainer.appendChild(errorContainer);
+        
+        // Show on hover
+        parentContainer.addEventListener('mouseenter', () => {
+            errorContainer.classList.add('visible');
         });
+        
+        parentContainer.addEventListener('mouseleave', () => {
+            errorContainer.classList.remove('visible');
+        });
+    }
+
+    async initializeModelInference() {
+        try {
+            console.log('Deepfake Detection: Initializing ONNX model inference...');
+            
+            // Load ONNX Runtime Web
+            if (typeof ort === 'undefined') {
+                await this.loadONNXRuntime();
+            }
+            
+            // Load inference module
+            const response = await fetch(chrome.runtime.getURL('models/onnx-inference.js'));
+            const inferenceCode = await response.text();
+            eval(inferenceCode);
+            
+            this.modelInference = new ONNXModelInference();
+            await this.modelInference.loadModel();
+            
+            console.log('Deepfake Detection: Model inference initialized successfully');
+        } catch (error) {
+            console.error('Deepfake Detection: Failed to initialize model inference:', error);
+            this.modelInference = null;
+        }
+    }
+
+    async loadONNXRuntime() {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js';
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
+    async analyzeMediaWithModel(media) {
+        if (!this.modelInference) {
+            throw new Error('Model not initialized');
+        }
+        
+        // Get image element from media
+        let imageElement;
+        if (media.type === 'image') {
+            imageElement = media.element;
+        } else if (media.type === 'video-poster') {
+            // Use poster image for video
+            imageElement = await this.loadImageFromUrl(media.src);
+        } else {
+            // For videos, extract current frame
+            imageElement = await this.extractVideoFrame(media.element);
+        }
+        
+        // Run inference with sensitivity
+        const result = await this.modelInference.analyzeWithSensitivity(
+            imageElement, 
+            this.sensitivity
+        );
+        
+        return {
+            riskScore: result.riskScore,
+            confidence: result.confidence
+        };
+    }
+
+    async loadImageFromUrl(imageUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = imageUrl;
+        });
+    }
+
+    async extractVideoFrame(videoElement) {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = 128;
+        canvas.height = 128;
+        
+        ctx.drawImage(videoElement, 0, 0, 128, 128);
+        
+        // Convert canvas to image element
+        const img = new Image();
+        img.src = canvas.toDataURL();
+        
+        return new Promise((resolve) => {
+            img.onload = () => resolve(img);
+        });
+    }
+
+    async generateMockAnalysis() {
+        // Simulate model output with sensitivity adjustment
+        const baseModelOutput = Math.random();
+        const threshold = this.calculateSensitivityThreshold(this.sensitivity);
+        const riskScore = this.applySensitivityToModelOutput(baseModelOutput, this.sensitivity);
+        const confidence = this.calculateConfidence(baseModelOutput, threshold);
+        
+        return {
+            riskScore: riskScore,
+            confidence: confidence
+        };
+    }
+
+    calculateSensitivityThreshold(sensitivity) {
+        // Convert sensitivity (0-100) to threshold (0-1)
+        // Higher sensitivity = lower threshold (easier to detect fakes)
+        return 1 - (sensitivity / 100);
+    }
+
+    applySensitivityToModelOutput(baseOutput, sensitivity) {
+        const threshold = this.calculateSensitivityThreshold(sensitivity);
+        
+        // Convert base output to risk score (0-100)
+        let adjustedScore;
+        if (baseOutput > threshold) {
+            // Above threshold - scale up based on sensitivity
+            const excess = baseOutput - threshold;
+            const maxExcess = 1 - threshold;
+            adjustedScore = 50 + (excess / maxExcess) * 50 * (sensitivity / 100);
+        } else {
+            // Below threshold - scale down based on sensitivity
+            adjustedScore = (baseOutput / threshold) * 50 * (1 - sensitivity / 100);
+        }
+        
+        return Math.max(0, Math.min(100, adjustedScore));
+    }
+
+    calculateConfidence(baseOutput, threshold) {
+        // Calculate confidence based on distance from decision threshold
+        const distance = Math.abs(baseOutput - threshold);
+        const maxDistance = Math.max(threshold, 1 - threshold);
+        
+        // Convert distance to confidence (70-95%)
+        const normalizedDistance = distance / maxDistance;
+        const confidence = 70 + normalizedDistance * 25;
+        
+        return Math.max(70, Math.min(95, confidence));
     }
 
     updateSensitivity(sensitivity) {
         console.log(`Deepfake Detection: Updating sensitivity to ${sensitivity}`);
         this.sensitivity = sensitivity;
-        // Re-analyze with new sensitivity
-        if (this.isEnabled) {
-            this.removeAllOverlays();
-            this.addOverlaysToAllMedia();
-        }
+        // Sensitivity changes should only affect future manual analyses.
     }
 
     highlightMediaElement(src) {

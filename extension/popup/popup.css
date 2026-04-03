@@ -271,6 +271,34 @@ input:checked + .slider:before {
   justify-content: space-between;
 }
 
+.model-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-select {
+  width: 120px;
+  padding: 8px 10px;
+  border: 1px solid #d0c4cf;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 12px;
+}
+
+.model-select:disabled {
+  background: #f1f1f1;
+  color: #888;
+  cursor: not-allowed;
+}
+
+.model-help {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+}
+
 .custom-slider {
   position: relative;
   width: 100px;
