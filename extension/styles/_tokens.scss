@@ -1,0 +1,31 @@
+$font-sans: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-ui: "Google Sans", "Segoe UI", Roboto, Arial, sans-serif;
+
+$color-bg: #f5f3f8;
+$color-surface: #ffffff;
+$color-surface-alt: #fbf8fc;
+$color-text: #2c2430;
+$color-text-muted: #6f6475;
+$color-border: #e4dbe7;
+$color-shadow: rgba(42, 27, 47, 0.12);
+
+$color-accent: #6a145f;
+$color-accent-strong: #52114b;
+$color-accent-soft: #f3e3f0;
+$color-accent-tint: #faf2f8;
+
+$color-success: #2f9b57;
+$color-warning: #d6a018;
+$color-danger: #d44f5c;
+$color-info: #4d63d8;
+
+$radius-sm: 6px;
+$radius-md: 10px;
+$radius-lg: 16px;
+
+$shadow-sm: 0 1px 3px $color-shadow;
+$shadow-md: 0 8px 24px rgba(42, 27, 47, 0.08);
+$shadow-lg: 0 18px 48px rgba(42, 27, 47, 0.12);
+
+$transition-fast: 0.2s ease;
+$transition-base: 0.3s ease;

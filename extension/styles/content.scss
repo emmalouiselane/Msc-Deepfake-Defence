@@ -1,0 +1,48 @@
+@use "base";
+@use "tokens" as *;
+
+@keyframes deepfake-highlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba($color-info, 0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba($color-info, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba($color-info, 0);
+  }
+}
+
+.deepfake-analyzed {
+  animation: deepfake-highlight 2s ease-in-out;
+  border-radius: 4px;
+}
+
+.deepfake-risk-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1000;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.8);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: $font-sans;
+}
+
+.risk-low {
+  background: rgba($color-success, 0.92);
+}
+
+.risk-medium {
+  background: rgba($color-warning, 0.92);
+  color: $color-text;
+}
+
+.risk-high {
+  background: rgba($color-danger, 0.92);
+}

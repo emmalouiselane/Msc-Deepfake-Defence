@@ -1,6 +1,31 @@
 import { defineConfig } from 'vite';
-import { resolve } from 'path';
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs';
+import * as sass from 'sass';
+
+const styleEntries = [
+  {
+    source: resolve(__dirname, 'styles/popup.scss'),
+    output: resolve(__dirname, 'popup/popup.css')
+  },
+  {
+    source: resolve(__dirname, 'styles/newtab.scss'),
+    output: resolve(__dirname, 'newtab/newtab.css')
+  },
+  {
+    source: resolve(__dirname, 'styles/content.scss'),
+    output: resolve(__dirname, 'content/content.css')
+  }
+];
+
+function compileExtensionStyles() {
+  for (const entry of styleEntries) {
+    const result = sass.compile(entry.source, { style: 'expanded' });
+    mkdirSync(dirname(entry.output), { recursive: true });
+    const banner = '/* Generated from extension/styles. Do not edit directly. */\n';
+    writeFileSync(entry.output, banner + result.css);
+  }
+}
 
 export default defineConfig({
   build: {
@@ -22,6 +47,21 @@ export default defineConfig({
     }
   },
   plugins: [
+    {
+      name: 'compile-extension-styles',
+      buildStart() {
+        compileExtensionStyles();
+      },
+      configureServer(server) {
+        compileExtensionStyles();
+        server.watcher.add(resolve(__dirname, 'styles'));
+        server.watcher.on('change', (file) => {
+          if (file.includes(`${resolve(__dirname, 'styles')}`)) {
+            compileExtensionStyles();
+          }
+        });
+      }
+    },
     {
       name: 'copy-onnx-runtime',
       writeBundle() {

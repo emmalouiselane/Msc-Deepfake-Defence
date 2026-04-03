@@ -183,244 +183,6 @@ class ContentScript {
         console.log('Deepfake Detection: Floating button fully initialized');
     }
 
-    addFloatingButtonStyles() {
-        const style = document.createElement('style');
-        style.textContent = `
-            #deepfake-detector-button {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                border-radius: 50%;
-                width: 56px;
-                height: 56px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-                transition: all 0.3s ease;
-            }
-
-            #deepfake-detector-button:hover {
-                transform: scale(1.1);
-                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
-            }
-
-            .detector-icon {
-                font-size: 24px;
-                color: white;
-            }
-
-            .detector-tooltip {
-                position: absolute;
-                top: 100%;
-                right: 0;
-                margin-top: 8px;
-                background: #333;
-                color: white;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-size: 12px;
-                white-space: nowrap;
-                display: none;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            }
-
-            .detector-tooltip::after {
-                content: '';
-                position: absolute;
-                top: -4px;
-                right: 20px;
-                width: 0;
-                height: 0;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 4px solid #333;
-            }
-
-            .media-selector-overlay {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.8);
-                z-index: 10001;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            }
-
-            .media-selector-modal {
-                background: white;
-                border-radius: 12px;
-                padding: 24px;
-                max-width: 600px;
-                width: 90%;
-                max-height: 80vh;
-                overflow-y: auto;
-            }
-
-            .media-selector-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 20px;
-            }
-
-            .media-selector-title {
-                font-size: 18px;
-                font-weight: 600;
-                color: #333;
-            }
-
-            .media-selector-close {
-                background: none;
-                border: none;
-                font-size: 24px;
-                cursor: pointer;
-                color: #666;
-                padding: 0;
-                width: 32px;
-                height: 32px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 50%;
-                transition: background 0.3s ease;
-            }
-
-            .media-selector-close:hover {
-                background: #f1f3f4;
-            }
-
-            .media-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                gap: 16px;
-                margin-bottom: 20px;
-            }
-
-            .media-item {
-                border: 2px solid #e1e4e8;
-                border-radius: 8px;
-                padding: 8px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                text-align: center;
-            }
-
-            .media-item:hover {
-                border-color: #667eea;
-                box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-            }
-
-            .media-item.selected {
-                border-color: #667eea;
-                background: #f8f9ff;
-            }
-
-            .media-thumbnail {
-                width: 100%;
-                height: 100px;
-                object-fit: cover;
-                border-radius: 4px;
-                margin-bottom: 8px;
-            }
-
-            .media-info {
-                font-size: 12px;
-                color: #666;
-                word-break: break-all;
-            }
-
-            .media-selector-actions {
-                display: flex;
-                gap: 12px;
-                justify-content: flex-end;
-            }
-
-            .analyze-btn {
-                background: #667eea;
-                color: white;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: 500;
-                cursor: pointer;
-                transition: background 0.3s ease;
-            }
-
-            .analyze-btn:hover {
-                background: #5a6fd8;
-            }
-
-            .analyze-btn:disabled {
-                background: #e1e4e8;
-                color: #666;
-                cursor: not-allowed;
-            }
-
-            /* Deepfake Overlay Styles */
-            .deepfake-overlay {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.8);
-                color: white;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                z-index: 1000;
-                opacity: 0;
-                transition: opacity 0.3s ease;
-                pointer-events: none;
-            }
-
-            .deepfake-overlay.visible {
-                opacity: 1;
-            }
-
-            .deepfake-overlay-icon {
-                font-size: 32px;
-                margin-bottom: 8px;
-            }
-
-            .deepfake-overlay-text {
-                font-size: 14px;
-                font-weight: 600;
-                text-align: center;
-                margin-bottom: 4px;
-            }
-
-            .deepfake-overlay-confidence {
-                font-size: 12px;
-                opacity: 0.8;
-            }
-
-            .deepfake-overlay.low-risk {
-                background: rgba(40, 167, 69, 0.8);
-            }
-
-            .deepfake-overlay.medium-risk {
-                background: rgba(255, 193, 7, 0.8);
-            }
-
-            .deepfake-overlay.high-risk {
-                background: rgba(220, 53, 69, 0.8);
-            }
-
-            .deepfake-container {
-                position: relative;
-                display: inline-block;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
     createOverlay(element, result) {
         console.log('Deepfake Detection: Creating overlay for element', element);
         
@@ -521,14 +283,17 @@ class ContentScript {
         const style = document.createElement('style');
         style.textContent = `
             #deepfake-detector-button {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(
+                    135deg,
+                    rgba(106, 20, 95, 0.8) 0%,
+                    rgba(118, 75, 162, 0) 100%
+                );
                 border-radius: 50%;
                 width: 56px;
                 height: 56px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
                 transition: all 0.3s ease;
             }
 
@@ -585,7 +350,7 @@ class ContentScript {
 
             .media-selector-modal {
                 background: white;
-                border-radius: 12px;
+                border-radius: 4px;
                 padding: 24px;
                 max-width: 600px;
                 width: 90%;
@@ -673,7 +438,7 @@ class ContentScript {
             }
 
             .analyze-btn {
-                background: #667eea;
+                background: #6a145f;
                 color: white;
                 border: none;
                 padding: 12px 24px;
@@ -685,7 +450,7 @@ class ContentScript {
             }
 
             .analyze-btn:hover {
-                background: #5a6fd8;
+                background: #4c104490;
             }
 
             .analyze-btn:disabled {
@@ -929,7 +694,7 @@ class ContentScript {
                 </div>
             </div>
             <div style="margin-top: 12px; text-align: right;">
-                <button class="deepfake-notification-close" style="background: #667eea; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">
+                <button class="deepfake-notification-close" style="background: #6a145f; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">
                     Close
                 </button>
             </div>
@@ -1425,7 +1190,7 @@ class ContentScript {
     highlightMediaElement(src) {
         const element = this.mediaElements.find(media => media.src === src);
         if (element && element.element) {
-            element.element.style.border = '3px solid #667eea';
+            element.element.style.border = '3px solid #6a145f';
             element.element.style.boxShadow = '0 0 10px rgba(102, 126, 234, 0.5)';
             
             setTimeout(() => {
