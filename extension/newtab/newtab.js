@@ -19,7 +19,6 @@ class FullAnalysisPlatform {
         // Navigation elements
         this.navItems = document.querySelectorAll('.nav-item');
         this.pageTitle = document.getElementById('pageTitle');
-        this.pageSubtitle = document.getElementById('pageSubtitle');
         this.statusDot = document.getElementById('statusDot');
         this.statusText = document.getElementById('statusText');
         
@@ -41,7 +40,7 @@ class FullAnalysisPlatform {
         this.avgProcessingTime = document.getElementById('avgProcessingTime');
         
         // Buttons
-        this.uploadBtn = document.getElementById('uploadBtn');
+        //this.uploadBtn = document.getElementById('uploadBtn');
         this.exportBtn = document.getElementById('exportBtn');
         this.clearBtn = document.getElementById('clearBtn');
     }
@@ -60,7 +59,7 @@ class FullAnalysisPlatform {
         this.fileInputLarge.addEventListener('change', this.handleFileSelect.bind(this));
         
         // Button events
-        this.uploadBtn.addEventListener('click', () => this.navigateToPage('media-analysis'));
+        //this.uploadBtn.addEventListener('click', () => this.navigateToPage('media-analysis'));
         this.exportBtn.addEventListener('click', this.exportResults.bind(this));
         this.clearBtn.addEventListener('click', this.clearResults.bind(this));
     }
@@ -136,7 +135,6 @@ class FullAnalysisPlatform {
         const header = pageHeaders[pageName];
         if (header) {
             this.pageTitle.textContent = header.title;
-            this.pageSubtitle.textContent = header.subtitle;
         }
     }
 
@@ -311,34 +309,57 @@ class FullAnalysisPlatform {
         
         const card = document.createElement('div');
         card.className = `result-card ${riskLevel.class}-risk`;
-        card.innerHTML = `
+
+        const header = `
             <div class="result-header">
-                <div class="result-filename">${result.filename}</div>
+                <div class="result-filename">${result.filename ?? 'Scanned from the internet'}</div>
                 <div class="result-risk risk-${riskLevel.class}">${riskLevel.label}</div>
             </div>
-            <div class="result-details">
-                <div class="detail-item">
-                    <span class="detail-label">Risk Score:</span>
-                    <span class="detail-value">${result.riskScore.toFixed(1)}%</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Confidence:</span>
-                    <span class="detail-value">${result.confidence.toFixed(1)}%</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Processing Time:</span>
-                    <span class="detail-value">${result.processingTime}ms</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">File Size:</span>
-                    <span class="detail-value">${this.formatFileSize(result.size)}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Analysis:</span>
-                    <span class="detail-value">${result.explanation}</span>
-                </div>
+        `;
+        const details_StartWrapper = `<div class="result-details">`;
+        const details_RiskScore = `
+            <div class="detail-item">
+                <span class="detail-label">Risk Score:</span>
+                <span class="detail-value">${result.riskScore.toFixed(1)}%</span>
             </div>
         `;
+        const details_Confidence = `
+            <div class="detail-item">
+                <span class="detail-label">Confidence:</span>
+                <span class="detail-value">${result.confidence.toFixed(1)}%</span>
+            </div>
+        `;
+        const details_ProcessingTime = `
+            <div class="detail-item">
+                <span class="detail-label">Processing Time:</span>
+                <span class="detail-value">${result.processingTime}ms</span>
+            </div>
+        `;
+        const details_FileSize = `
+            <div class="detail-item">
+                <span class="detail-label">File Size:</span>
+                <span class="detail-value">${this.formatFileSize(result.size)}</span>
+            </div>
+        `;
+        const details_Analysis = `
+            <div class="detail-item">
+                <span class="detail-label">Analysis:</span>
+                <span class="detail-value">${result.explanation}</span>
+            </div>
+        `;
+        const details_EndWrapper = `</div>`;
+
+        card.innerHTML = header;
+        card.innerHTML += details_StartWrapper;
+        card.innerHTML += details_RiskScore;
+        card.innerHTML += details_Confidence;
+        card.innerHTML += details_ProcessingTime;
+        if (result.size) {
+            card.innerHTML += details_FileSize;
+        }
+        card.innerHTML += details_Analysis;
+        card.innerHTML += details_EndWrapper;
+
 
         this.resultsGrid.appendChild(card);
     }
