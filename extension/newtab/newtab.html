@@ -17,13 +17,13 @@
                         <div class="nav-icon">📊</div>
                         <span>Dashboard</span>
                     </li>
-                    <li class="nav-item" data-page="media-analysis">
-                        <div class="nav-icon">📁</div>
-                        <span>Media Analysis</span>
-                    </li>
                     <li class="nav-item" data-page="history">
                         <div class="nav-icon">📋</div>
                         <span>History</span>
+                    </li>
+                    <li class="nav-item" data-page="media-analysis">
+                        <div class="nav-icon">📁</div>
+                        <span>Media Analysis</span>
                     </li>
                     <li class="nav-item" data-page="analytics">
                         <div class="nav-icon">📈</div>
@@ -107,17 +107,7 @@
 
                 <!-- Media Analysis Page -->
                 <div class="page" id="media-analysis-page" style="display: none;">
-                    <section class="upload-section">
-                        <div class="upload-container">
-                            <div class="upload-area-large" id="uploadAreaLarge">
-                                <div class="upload-icon">📁</div>
-                                <h2>Upload Media for Analysis</h2>
-                                <p>Drag and drop images or videos here, or click to browse</p>
-                                <p class="upload-subtext">Supports: JPG, PNG, GIF, MP4, WebM (Max 50MB)</p>
-                                <input type="file" id="fileInputLarge" accept="image/*,video/*" multiple hidden>
-                            </div>
-                        </div>
-                    </section>
+                    
                 </div>
 
                 <!-- History Page -->
@@ -151,12 +141,12 @@
                 <div class="page" id="upload-page" style="display: none;">
                     <section class="upload-section">
                         <div class="upload-container">
-                            <div class="upload-area-large">
-                                <div class="upload-icon">⬆️</div>
-                                <h2>Upload New Media</h2>
+                            <div class="upload-area-large" id="uploadAreaLarge">
+                                <div class="upload-icon">📁</div>
+                                <h2>Upload Media for Analysis</h2>
                                 <p>Drag and drop images or videos here, or click to browse</p>
                                 <p class="upload-subtext">Supports: JPG, PNG, GIF, MP4, WebM (Max 50MB)</p>
-                                <input type="file" accept="image/*,video/*" multiple hidden>
+                                <input type="file" id="fileInputLarge" accept="image/*,video/*" multiple hidden>
                             </div>
                         </div>
                     </section>
