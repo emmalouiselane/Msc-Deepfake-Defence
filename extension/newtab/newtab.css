@@ -43,6 +43,10 @@ body {
   display: none !important;
 }
 
+.lucide {
+  margin-top: 5px;
+}
+
 .app-container {
   display: flex;
   height: 100vh;
@@ -114,6 +118,20 @@ body {
   width: 18px;
   font-size: 16px;
   text-align: center;
+}
+
+.nav-icon svg,
+.stat-icon svg,
+.placeholder-symbol svg,
+.icon-btn svg,
+.history-search-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .sidebar-footer {
@@ -537,6 +555,11 @@ body {
   background: rgba(255, 255, 255, 0.88);
 }
 
+.placeholder-symbol svg {
+  width: 34px;
+  height: 34px;
+}
+
 .analysis-score-ring span {
   font-size: 24px;
 }
@@ -562,10 +585,18 @@ body {
 .icon-btn {
   width: 38px;
   height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid #e4dbe7;
   border-radius: 50%;
+}
+
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .analysis-panel,
@@ -646,6 +677,8 @@ body {
   position: absolute;
   top: 50%;
   right: 14px;
+  width: 16px;
+  height: 16px;
   color: #6f6475;
   transform: translateY(-50%);
 }

@@ -96,6 +96,24 @@ body {
   text-align: center;
 }
 
+.lucide {
+  margin-top: 5px;
+}
+
+.nav-icon svg,
+.stat-icon svg,
+.placeholder-symbol svg,
+.icon-btn svg,
+.history-search-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .sidebar-footer {
   display: flex;
   flex-direction: column;
@@ -518,6 +536,11 @@ body {
   background: rgba(#fff, 0.88);
 }
 
+.placeholder-symbol svg {
+  width: 34px;
+  height: 34px;
+}
+
 .analysis-score-ring {
   span {
     font-size: 24px;
@@ -545,10 +568,18 @@ body {
 .icon-btn {
   width: 38px;
   height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   background: rgba(#fff, 0.88);
   border: 1px solid $color-border;
   border-radius: 50%;
+}
+
+.icon-btn svg {
+  width: 18px;
+  height: 18px;
 }
 
 .analysis-panel,
@@ -630,6 +661,8 @@ body {
   position: absolute;
   top: 50%;
   right: 14px;
+  width: 16px;
+  height: 16px;
   color: $color-text-muted;
   transform: translateY(-50%);
 }

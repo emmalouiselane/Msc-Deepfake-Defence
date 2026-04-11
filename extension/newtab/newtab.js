@@ -23,7 +23,7 @@ class FullAnalysisPlatform {
             detectionMode: 'manual',
             modelKey: 'lightweight',
             detailLevel: 50,
-            anonymousAnalytics: false
+            anonymousAnalytics: true
         };
         this.pageHeaders = {
             dashboard: {
@@ -213,6 +213,14 @@ class FullAnalysisPlatform {
         this.headerActionBtn.hidden = !header.showAction;
         this.headerActionBtn.textContent = header.actionLabel || '';
         this.updateCurrentWebsite();
+    }
+
+    getInlineIcon(name) {
+        const icons = {
+            'move-horizontal': '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-move-horizontal"><path d="m18 8 4 4-4 4"></path><path d="M2 12h20"></path><path d="m6 16-4-4 4-4"></path></svg>'
+        };
+
+        return icons[name] || '';
     }
 
     handleHeaderAction() {
@@ -659,7 +667,7 @@ class FullAnalysisPlatform {
         if (!current) {
             this.analysisCanvas.innerHTML = `
                 <div class="analysis-placeholder">
-                    <div class="placeholder-symbol">↔</div>
+                    <div class="placeholder-symbol" aria-hidden="true">${this.getInlineIcon('move-horizontal')}</div>
                     <div class="placeholder-title">Select a result to inspect</div>
                     <div class="placeholder-copy">Use Recent Activity, History, Upload, or Re-analyse to populate this panel.</div>
                 </div>
@@ -689,7 +697,7 @@ class FullAnalysisPlatform {
         const token = ++this.mediaRenderToken;
         this.analysisCanvas.innerHTML = `
             <div class="analysis-placeholder">
-                <div class="placeholder-symbol">↔</div>
+                <div class="placeholder-symbol" aria-hidden="true">${this.getInlineIcon('move-horizontal')}</div>
                 <div class="placeholder-title">Loading analysed media</div>
                 <div class="placeholder-copy">Retrieving the saved preview for this analysis item.</div>
             </div>
