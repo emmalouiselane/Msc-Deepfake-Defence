@@ -1,30 +1,57 @@
 @use "tokens" as *;
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
+@mixin page-base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: $font-sans;
+    color: $color-text;
+    background: $color-bg;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  a {
+    color: inherit;
+  }
 }
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-}
+@mixin root-base($selector) {
+  #{$selector},
+  #{$selector} *,
+  #{$selector} *::before,
+  #{$selector} *::after {
+    box-sizing: border-box;
+  }
 
-body {
-  font-family: $font-sans;
-  color: $color-text;
-  background: $color-bg;
-}
+  #{$selector} {
+    font-family: $font-sans;
+    color: $color-text;
+  }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
+  #{$selector} button,
+  #{$selector} input,
+  #{$selector} select,
+  #{$selector} textarea {
+    font: inherit;
+  }
 
-a {
-  color: inherit;
+  #{$selector} a {
+    color: inherit;
+  }
 }

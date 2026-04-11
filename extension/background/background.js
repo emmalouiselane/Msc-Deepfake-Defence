@@ -340,7 +340,7 @@ class BackgroundService {
                 timestamp: new Date().toISOString()
             };
 
-            await this.saveAnalysisResult(this.createPersistableResult(analysisResult));
+            await this.saveAnalysisResult(this.createPersistableResult(analysisResult, mediaData, sender));
             return analysisResult;
         } catch (error) {
             console.error('Deepfake Detection: Model analysis failed:', {
@@ -768,13 +768,17 @@ class BackgroundService {
         return btoa(binary);
     }
 
-    createPersistableResult(result) {
+    createPersistableResult(result, mediaData = {}, sender = {}) {
         if (!result?.debug) {
-            return result;
+            return {
+                ...result,
+                ...this.buildSourceMetadata(mediaData, sender)
+            };
         }
 
         return {
             ...result,
+            ...this.buildSourceMetadata(mediaData, sender),
             debug: {
                 capture: result.debug.capture || null,
                 preprocess: result.debug.preprocess
@@ -784,6 +788,22 @@ class BackgroundService {
                     }
                     : null
             }
+        };
+    }
+
+    buildSourceMetadata(mediaData = {}, sender = {}) {
+        const mediaUrl = mediaData?.src || '';
+        const pageUrl = sender?.tab?.url || '';
+        const pageTitle = sender?.tab?.title || '';
+        const sourceType = /^https?:/i.test(mediaUrl) ? 'web' : 'unknown';
+
+        return {
+            sourceType,
+            mediaUrl,
+            mediaHostname: this.getHostname(mediaUrl),
+            pageUrl,
+            pageHostname: this.getHostname(pageUrl),
+            pageTitle
         };
     }
 

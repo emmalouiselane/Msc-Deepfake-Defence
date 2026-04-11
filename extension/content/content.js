@@ -2,6 +2,8 @@
 console.log('Deepfake Detection: Content script file loaded');
 
 class ContentScript {
+    static ROOT_CLASS = 'deepfake-extension-root';
+
     constructor() {
         console.log('Deepfake Detection: Content script constructor called');
         this.initializeElements();
@@ -117,14 +119,15 @@ class ContentScript {
     }
 
     isExtensionOwnedElement(element) {
-        return Boolean(
-            element.closest('#deepfake-detector-button') ||
-            element.closest('.media-selector-overlay') ||
-            element.closest('.media-selector-modal') ||
-            element.closest('.deepfake-container') ||
-            element.closest('.deepfake-loading-overlay') ||
-            element.closest('.deepfake-error-overlay')
-        );
+        return Boolean(element.closest(`.${ContentScript.ROOT_CLASS}`));
+    }
+
+    markAsExtensionRoot(element) {
+        if (element) {
+            element.classList.add(ContentScript.ROOT_CLASS);
+        }
+
+        return element;
     }
 
     isValidMediaUrl(url) {
@@ -142,7 +145,7 @@ class ContentScript {
         console.log('Deepfake Detection: Creating floating button');
         
         // Create floating action button
-        this.floatingButton = document.createElement('div');
+        this.floatingButton = this.markAsExtensionRoot(document.createElement('div'));
         this.floatingButton.id = 'deepfake-detector-button';
         this.floatingButton.innerHTML = `
             <div class="detector-icon">🔍</div>
@@ -193,16 +196,16 @@ class ContentScript {
                 return;
             }
             
-            const container = document.createElement('div');
-            container.className = 'deepfake-container';
+            const container = this.markAsExtensionRoot(document.createElement('div'));
+            container.className = `${ContentScript.ROOT_CLASS} deepfake-container`;
             
             // Wrap the original element
             element.parentNode.insertBefore(container, element);
             container.appendChild(element);
             
             // Create overlay
-            const overlay = document.createElement('div');
-            overlay.className = 'deepfake-overlay';
+            const overlay = this.markAsExtensionRoot(document.createElement('div'));
+            overlay.className = `${ContentScript.ROOT_CLASS} deepfake-overlay`;
             
             const riskLevel = this.getRiskLevel(result.riskScore);
             overlay.classList.add(riskLevel.class + '-risk');
@@ -280,9 +283,14 @@ class ContentScript {
     }
 
     addFloatingButtonStyles() {
+        if (document.querySelector('#deepfake-ui-styles')) {
+            return;
+        }
+
         const style = document.createElement('style');
+        style.id = 'deepfake-ui-styles';
         style.textContent = `
-            #deepfake-detector-button {
+            #deepfake-detector-button.deepfake-extension-root {
                 background: linear-gradient(
                     135deg,
                     rgba(106, 20, 95, 0.8) 0%,
@@ -297,17 +305,17 @@ class ContentScript {
                 transition: all 0.3s ease;
             }
 
-            #deepfake-detector-button:hover {
+            #deepfake-detector-button.deepfake-extension-root:hover {
                 transform: scale(1.1);
                 box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
             }
 
-            .detector-icon {
+            .deepfake-extension-root .detector-icon {
                 font-size: 24px;
                 color: white;
             }
 
-            .detector-tooltip {
+            .deepfake-extension-root .detector-tooltip {
                 position: absolute;
                 top: 100%;
                 right: 0;
@@ -322,7 +330,7 @@ class ContentScript {
                 box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             }
 
-            .detector-tooltip::after {
+            .deepfake-extension-root .detector-tooltip::after {
                 content: '';
                 position: absolute;
                 top: -4px;
@@ -334,7 +342,7 @@ class ContentScript {
                 border-bottom: 4px solid #333;
             }
 
-            .media-selector-overlay {
+            .media-selector-overlay.deepfake-extension-root {
                 position: fixed;
                 top: 0;
                 left: 0;
@@ -348,7 +356,7 @@ class ContentScript {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }
 
-            .media-selector-modal {
+            .deepfake-extension-root .media-selector-modal {
                 background: white;
                 border-radius: 4px;
                 padding: 24px;
@@ -358,20 +366,20 @@ class ContentScript {
                 overflow-y: auto;
             }
 
-            .media-selector-header {
+            .deepfake-extension-root .media-selector-header {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 margin-bottom: 20px;
             }
 
-            .media-selector-title {
+            .deepfake-extension-root .media-selector-title {
                 font-size: 18px;
                 font-weight: 600;
                 color: #333;
             }
 
-            .media-selector-close {
+            .deepfake-extension-root .media-selector-close {
                 background: none;
                 border: none;
                 font-size: 24px;
@@ -387,18 +395,18 @@ class ContentScript {
                 transition: background 0.3s ease;
             }
 
-            .media-selector-close:hover {
+            .deepfake-extension-root .media-selector-close:hover {
                 background: #f1f3f4;
             }
 
-            .media-grid {
+            .deepfake-extension-root .media-grid {
                 display: grid;
                 grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
                 gap: 16px;
                 margin-bottom: 20px;
             }
 
-            .media-item {
+            .deepfake-extension-root .media-item {
                 border: 2px solid #e1e4e8;
                 border-radius: 8px;
                 padding: 8px;
@@ -407,17 +415,17 @@ class ContentScript {
                 text-align: center;
             }
 
-            .media-item:hover {
+            .deepfake-extension-root .media-item:hover {
                 border-color: #667eea;
                 box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
             }
 
-            .media-item.selected {
+            .deepfake-extension-root .media-item.selected {
                 border-color: #667eea;
                 background: #f8f9ff;
             }
 
-            .media-thumbnail {
+            .deepfake-extension-root .media-thumbnail {
                 width: 100%;
                 height: 100px;
                 object-fit: cover;
@@ -425,19 +433,19 @@ class ContentScript {
                 margin-bottom: 8px;
             }
 
-            .media-info {
+            .deepfake-extension-root .media-info {
                 font-size: 12px;
                 color: #666;
                 word-break: break-all;
             }
 
-            .media-selector-actions {
+            .deepfake-extension-root .media-selector-actions {
                 display: flex;
                 gap: 12px;
                 justify-content: flex-end;
             }
 
-            .analyze-btn {
+            .deepfake-extension-root .analyze-btn {
                 background: #6a145f;
                 color: white;
                 border: none;
@@ -449,11 +457,11 @@ class ContentScript {
                 transition: background 0.3s ease;
             }
 
-            .analyze-btn:hover {
+            .deepfake-extension-root .analyze-btn:hover {
                 background: #4c104490;
             }
 
-            .analyze-btn:disabled {
+            .deepfake-extension-root .analyze-btn:disabled {
                 background: #e1e4e8;
                 color: #666;
                 cursor: not-allowed;
@@ -464,8 +472,8 @@ class ContentScript {
 
     showMediaSelector() {
         // Create modal overlay
-        const overlay = document.createElement('div');
-        overlay.className = 'media-selector-overlay';
+        const overlay = this.markAsExtensionRoot(document.createElement('div'));
+        overlay.className = `${ContentScript.ROOT_CLASS} media-selector-overlay`;
         
         const modal = document.createElement('div');
         modal.className = 'media-selector-modal';
@@ -654,7 +662,7 @@ class ContentScript {
 
     showAnalysisResult(result) {
         // Create result notification
-        const notification = document.createElement('div');
+        const notification = this.markAsExtensionRoot(document.createElement('div'));
         notification.style.cssText = `
             position: fixed;
             top: 20px;
@@ -728,7 +736,7 @@ class ContentScript {
     }
 
     showError(message) {
-        const errorDiv = document.createElement('div');
+        const errorDiv = this.markAsExtensionRoot(document.createElement('div'));
         errorDiv.style.cssText = `
             position: fixed;
             top: 20px;
@@ -929,8 +937,8 @@ class ContentScript {
     }
 
     createLoadingOverlay(element) {
-        const container = document.createElement('div');
-        container.className = 'deepfake-loading-overlay';
+        const container = this.markAsExtensionRoot(document.createElement('div'));
+        container.className = `${ContentScript.ROOT_CLASS} deepfake-loading-overlay`;
         container.innerHTML = `
             <div class="deepfake-loading-spinner"></div>
             <div class="deepfake-loading-text">Analyzing...</div>
@@ -952,8 +960,8 @@ class ContentScript {
         `;
         
         // Wrap element and add overlay
-        const wrapper = document.createElement('div');
-        wrapper.className = 'deepfake-container';
+        const wrapper = this.markAsExtensionRoot(document.createElement('div'));
+        wrapper.className = `${ContentScript.ROOT_CLASS} deepfake-container`;
         wrapper.style.position = 'relative';
         wrapper.style.display = 'inline-block';
         
@@ -965,8 +973,8 @@ class ContentScript {
     }
 
     createErrorOverlay(element, errorMessage) {
-        const errorContainer = document.createElement('div');
-        errorContainer.className = 'deepfake-error-overlay';
+        const errorContainer = this.markAsExtensionRoot(document.createElement('div'));
+        errorContainer.className = `${ContentScript.ROOT_CLASS} deepfake-error-overlay`;
         errorContainer.innerHTML = `
             <div class="deepfake-error-icon">⚠️</div>
             <div class="deepfake-error-text">${errorMessage}</div>
@@ -994,18 +1002,18 @@ class ContentScript {
             const style = document.createElement('style');
             style.id = 'deepfake-error-styles';
             style.textContent = `
-                .deepfake-error-overlay {
+                .deepfake-error-overlay.deepfake-extension-root {
                     opacity: 0;
                     transition: opacity 0.3s ease;
                 }
-                .deepfake-container:hover .deepfake-error-overlay {
+                .deepfake-container.deepfake-extension-root:hover .deepfake-error-overlay.deepfake-extension-root {
                     opacity: 1;
                 }
-                .deepfake-error-icon {
+                .deepfake-extension-root .deepfake-error-icon {
                     font-size: 24px;
                     margin-bottom: 8px;
                 }
-                .deepfake-error-text {
+                .deepfake-extension-root .deepfake-error-text {
                     font-size: 14px;
                     font-weight: 600;
                     text-align: center;
@@ -1019,8 +1027,8 @@ class ContentScript {
         // Find or create wrapper
         let parentContainer = element.parentNode;
         if (!parentContainer || !parentContainer.classList.contains('deepfake-container')) {
-            const wrapper = document.createElement('div');
-            wrapper.className = 'deepfake-container';
+            const wrapper = this.markAsExtensionRoot(document.createElement('div'));
+            wrapper.className = `${ContentScript.ROOT_CLASS} deepfake-container`;
             wrapper.style.position = 'relative';
             wrapper.style.display = 'inline-block';
             

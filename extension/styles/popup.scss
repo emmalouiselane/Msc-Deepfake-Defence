@@ -2,6 +2,8 @@
 @use "mixins" as *;
 @use "tokens" as *;
 
+@include base.page-base;
+
 body {
   min-width: 350px;
   font-size: 14px;

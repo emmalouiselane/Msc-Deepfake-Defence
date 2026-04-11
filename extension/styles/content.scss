@@ -1,6 +1,8 @@
 @use "base";
 @use "tokens" as *;
 
+@include base.root-base(".deepfake-extension-root");
+
 @keyframes deepfake-highlight {
   0% {
     box-shadow: 0 0 0 0 rgba($color-info, 0.7);
@@ -25,6 +27,7 @@
   top: 8px;
   right: 8px;
   z-index: 1000;
+  box-sizing: border-box;
   padding: 4px 8px;
   border-radius: 4px;
   color: #fff;

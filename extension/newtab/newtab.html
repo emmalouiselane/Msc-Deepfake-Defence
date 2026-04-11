@@ -8,8 +8,7 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Navigation Sidebar -->
-        <nav class="sidebar">            
+        <nav class="sidebar">
             <div class="sidebar-nav">
                 <div class="nav-section-title">Navigation</div>
                 <ul class="nav-list">
@@ -17,20 +16,20 @@
                         <div class="nav-icon">📊</div>
                         <span>Dashboard</span>
                     </li>
-                    <li class="nav-item" data-page="history">
-                        <div class="nav-icon">📋</div>
-                        <span>History</span>
-                    </li>
                     <li class="nav-item" data-page="media-analysis">
-                        <div class="nav-icon">📁</div>
+                        <div class="nav-icon">🖼️</div>
                         <span>Media Analysis</span>
+                    </li>
+                    <li class="nav-item" data-page="history">
+                        <div class="nav-icon">🗂️</div>
+                        <span>History</span>
                     </li>
                     <li class="nav-item" data-page="analytics">
                         <div class="nav-icon">📈</div>
                         <span>Analytics</span>
                     </li>
                 </ul>
-                
+
                 <div class="nav-section">
                     <div class="nav-section-title">Actions</div>
                     <ul class="nav-list">
@@ -39,13 +38,13 @@
                             <span>Upload Media</span>
                         </li>
                         <li class="nav-item" data-page="reanalyse">
-                            <div class="nav-icon">🔄</div>
+                            <div class="nav-icon">🔁</div>
                             <span>Re-analyse</span>
                         </li>
                     </ul>
                 </div>
             </div>
-            
+
             <div class="sidebar-footer">
                 <li class="nav-item" data-page="settings">
                     <div class="nav-icon">⚙️</div>
@@ -58,157 +57,329 @@
             </div>
         </nav>
 
-        <!-- Main Content Area -->
         <main class="main-content">
-            <!-- Header -->
             <header class="header">
-                <div class="header-content">
-                    
-                    <h1>Deepfake Detection v1.0</h1>
-                    <h2 id="pageTitle">Advanced Media Analysis Platform</h2>
+                <div class="header-shell">
+                    <div class="header-topbar">
+                        <div class="header-title-wrap">
+                            <h1>Deepfake Detection v1.0</h1>
+                            <h2 id="pageTitle">Dashboard</h2>
+                        </div>
+                        <button class="btn btn-primary header-export-btn" id="headerActionBtn" type="button">Export</button>
+                    </div>
+                    <div class="page-context">
+                        <div class="context-label" id="currentContextLabel">Current Source</div>
+                        <div class="context-value" id="currentWebsite">Waiting for analysis context...</div>
+                    </div>
                 </div>
             </header>
 
-            <!-- Page Content -->
             <div class="content-area">
-                <!-- Dashboard Page -->
                 <div class="page" id="dashboard-page">
-                    <div class="stats-grid">
-                        <div class="stat-card">
+                    <section class="stats-grid">
+                        <article class="stat-card">
                             <div class="stat-icon">📊</div>
                             <div class="stat-content">
                                 <div class="stat-value" id="totalAnalyzed">0</div>
-                                <div class="stat-label">Total Analyzed</div>
+                                <div class="stat-label">Analysed</div>
                             </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">⚠️</div>
+                        </article>
+                        <article class="stat-card">
+                            <div class="stat-icon">🚩</div>
                             <div class="stat-content">
                                 <div class="stat-value" id="highRiskCount">0</div>
-                                <div class="stat-label">High Risk</div>
+                                <div class="stat-label">Flagged</div>
                             </div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-icon">✅</div>
+                        </article>
+                        <article class="stat-card">
+                            <div class="stat-icon">🎯</div>
                             <div class="stat-content">
-                                <div class="stat-value" id="lowRiskCount">0</div>
-                                <div class="stat-label">Low Risk</div>
+                                <div class="stat-value" id="avgRiskScore">0%</div>
+                                <div class="stat-label">Average Score</div>
                             </div>
-                        </div>
-                        <div class="stat-card">
+                        </article>
+                        <article class="stat-card">
                             <div class="stat-icon">⏱️</div>
                             <div class="stat-content">
                                 <div class="stat-value" id="avgProcessingTime">0ms</div>
-                                <div class="stat-label">Avg Processing</div>
+                                <div class="stat-label">Average Speed</div>
+                            </div>
+                        </article>
+                    </section>
+
+                    <section class="dashboard-section">
+                        <div class="section-heading">
+                            <h3>Recent Activity</h3>
+                        </div>
+                        <div class="recent-activity-grid" id="recentActivityGrid"></div>
+                    </section>
+
+                    <section class="dashboard-section">
+                        <div class="section-heading">
+                            <h3>Quick Insights</h3>
+                        </div>
+                        <div class="insight-grid">
+                            <article class="insight-card">
+                                <div class="insight-card-title">Flag Rate</div>
+                                <div class="mini-chart mini-chart-wave" id="flagRateChart"></div>
+                                <p>Progress over the most recent items.</p>
+                            </article>
+                            <article class="insight-card">
+                                <div class="insight-card-title">Confidence Distribution</div>
+                                <div class="mini-chart mini-chart-bars" id="confidenceChart"></div>
+                                <p>Confidence spread across recent analyses.</p>
+                            </article>
+                            <article class="insight-card">
+                                <div class="insight-card-title">Risk Breakdown</div>
+                                <div class="risk-pill-row" id="riskBreakdown"></div>
+                                <p>Low, medium, and high risk snapshots.</p>
+                            </article>
+                            <article class="insight-card">
+                                <div class="insight-card-title">Routing Paths</div>
+                                <ul class="route-list">
+                                    <li>Media item on the current web page</li>
+                                    <li>Recent Activity cards</li>
+                                    <li>History entries</li>
+                                    <li>Uploaded media files</li>
+                                </ul>
+                            </article>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="page" id="media-analysis-page" style="display: none;">
+                    <section class="media-analysis-layout">
+                        <div class="media-stage">
+                            <div class="analysis-canvas" id="analysisCanvas">
+                                <div class="analysis-placeholder">
+                                    <div class="placeholder-symbol">↔</div>
+                                    <div class="placeholder-title">Select a result to inspect</div>
+                                    <div class="placeholder-copy">Use Recent Activity, History, Upload, or Re-analyse to populate this panel.</div>
+                                </div>
+                            </div>
+                            <div class="analysis-controls">
+                                <button class="icon-btn" id="prevAnalysisBtn" type="button" aria-label="Previous analysis">◀</button>
+                                <button class="icon-btn" id="nextAnalysisBtn" type="button" aria-label="Next analysis">▶</button>
                             </div>
                         </div>
-                    </div>
+                        <aside class="analysis-sidebar">
+                            <section class="analysis-panel">
+                                <h3>Explanation Panel</h3>
+                                <div class="analysis-summary" id="analysisSummary">
+                                    <div class="summary-metric">
+                                        <span class="summary-label">Result</span>
+                                        <span class="summary-value" id="analysisResultLabel">No result selected</span>
+                                    </div>
+                                    <div class="summary-block">
+                                        <span class="summary-label">Summary</span>
+                                        <p id="analysisExplanation">Choose a result to view its explanation.</p>
+                                    </div>
+                                    <div class="summary-block">
+                                        <span class="summary-label">Breakdown</span>
+                                        <ul class="breakdown-list" id="analysisBreakdown">
+                                            <li>Visual: Awaiting data</li>
+                                            <li>Temporal: Awaiting data</li>
+                                            <li>Compression: Awaiting data</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </section>
+                            <section class="analysis-panel compact-chart-panel">
+                                <h4>Confidence Graph</h4>
+                                <div class="confidence-graph" id="analysisConfidenceGraph"></div>
+                            </section>
+                            <section class="feedback-panel">
+                                <h4>Feedback</h4>
+                                <p>Do you agree with this analysis?</p>
+                                <div class="feedback-actions">
+                                    <button class="btn btn-secondary feedback-btn" type="button">Maybe</button>
+                                    <button class="btn btn-secondary feedback-btn" type="button">Yes</button>
+                                    <button class="btn btn-secondary feedback-btn" type="button">No</button>
+                                </div>
+                            </section>
+                        </aside>
+                    </section>
                 </div>
 
-                <!-- Media Analysis Page -->
-                <div class="page" id="media-analysis-page" style="display: none;">
-                    
-                </div>
-
-                <!-- History Page -->
                 <div class="page" id="history-page" style="display: none;">
                     <section class="results-section">
-                        <div class="results-header">
-                            <h2>Analysis History</h2>
-                            <div class="batch-actions">
-                                <button class="btn btn-secondary" id="exportBtn">Export Results</button>
-                                <button class="btn btn-secondary" id="clearBtn">Clear All</button>
+                        <div class="section-heading section-heading-spread">
+                            <h3>Detection History</h3>
+                            <div class="history-toolbar">
+                                <label class="history-search">
+                                    <input type="search" id="historySearchInput" placeholder="Hinted search text">
+                                    <span class="history-search-icon">⌕</span>
+                                </label>
+                                <select class="history-select" id="historySortSelect">
+                                    <option value="newest">Sort: Newest</option>
+                                    <option value="highest-risk">Sort: Highest Risk</option>
+                                    <option value="fastest">Sort: Fastest</option>
+                                </select>
+                                <select class="history-select" id="historyFilterSelect">
+                                    <option value="all">Filter: All</option>
+                                    <option value="high">High Risk</option>
+                                    <option value="medium">Medium Risk</option>
+                                    <option value="low">Low Risk</option>
+                                </select>
+                                <button class="btn btn-secondary" id="exportBtn" type="button">Export Results</button>
+                                <button class="btn btn-secondary" id="clearBtn" type="button">Clear All</button>
                             </div>
                         </div>
-
-                        <div class="results-grid" id="resultsGrid">
-                            <!-- Results will be dynamically added here -->
-                        </div>
+                        <div class="history-list" id="historyList"></div>
                     </section>
                 </div>
 
-                <!-- Analytics Page -->
                 <div class="page" id="analytics-page" style="display: none;">
-                    <section class="statistics-section">
-                        <h2>Detailed Analytics</h2>
-                        <div class="stats-detailed">
-                            <!-- Additional analytics content -->
+                    <section class="analytics-shell">
+                        <div class="section-heading">
+                            <h3>Analytics</h3>
                         </div>
+
+                        <section class="analytics-section">
+                            <h4>Performance</h4>
+                            <div class="analytics-metrics">
+                                <div class="metric-line">Average Accuracy: <span id="analyticsAccuracy">0%</span></div>
+                                <div class="metric-line">Average Processing Time: <span id="analyticsProcessing">0ms</span></div>
+                            </div>
+                        </section>
+
+                        <section class="analytics-section">
+                            <h4>Detection Trends</h4>
+                            <div class="trend-panel">
+                                <span class="trend-label">Flag Rate Over Time</span>
+                                <div class="trend-chart" id="trendChart"></div>
+                            </div>
+                        </section>
+
+                        <section class="analytics-section">
+                            <h4>Confidence Distribution</h4>
+                            <div class="distribution-list">
+                                <div class="distribution-row">
+                                    <span>Low</span>
+                                    <div class="distribution-bar"><div id="distLow"></div></div>
+                                </div>
+                                <div class="distribution-row">
+                                    <span>Medium</span>
+                                    <div class="distribution-bar"><div id="distMedium"></div></div>
+                                </div>
+                                <div class="distribution-row">
+                                    <span>High</span>
+                                    <div class="distribution-bar"><div id="distHigh"></div></div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="analytics-section">
+                            <h4>Feedback Distribution</h4>
+                            <div class="feedback-metrics">
+                                <div>Agree: <span id="feedbackAgree">60%</span></div>
+                                <div>Disagree: <span id="feedbackDisagree">25%</span></div>
+                                <div>Unsure: <span id="feedbackUnsure">15%</span></div>
+                            </div>
+                        </section>
                     </section>
                 </div>
 
-                <!-- Upload Page -->
                 <div class="page" id="upload-page" style="display: none;">
                     <section class="upload-section">
                         <div class="upload-container">
+                            <div class="section-heading">
+                                <h3>Upload Media</h3>
+                            </div>
                             <div class="upload-area-large" id="uploadAreaLarge">
                                 <div class="upload-icon">📁</div>
-                                <h2>Upload Media for Analysis</h2>
-                                <p>Drag and drop images or videos here, or click to browse</p>
-                                <p class="upload-subtext">Supports: JPG, PNG, GIF, MP4, WebM (Max 50MB)</p>
+                                <h2>Upload media for analysis</h2>
+                                <p>Drag and drop images or videos here, or click to browse.</p>
+                                <p class="upload-subtext">Supports JPG, PNG, GIF, MP4, and WebM up to 50MB.</p>
                                 <input type="file" id="fileInputLarge" accept="image/*,video/*" multiple hidden>
                             </div>
                         </div>
                     </section>
                 </div>
 
-                <!-- Re-analyse Page -->
                 <div class="page" id="reanalyse-page" style="display: none;">
                     <section class="reanalyse-section">
-                        <h2>Re-analyse Media</h2>
-                        <div class="reanalyse-container">
-                            <!-- Re-analyse content -->
+                        <div class="section-heading section-heading-spread">
+                            <h3>Re-analyse</h3>
+                            <button class="btn btn-primary" id="reanalyseLatestBtn" type="button">Re-analyse Latest</button>
                         </div>
+                        <div class="reanalyse-list" id="reanalyseList"></div>
                     </section>
                 </div>
 
-                <!-- Settings Page -->
                 <div class="page" id="settings-page" style="display: none;">
-                    <section class="settings-section">
-                        <h2>Settings</h2>
-                        <div class="settings-container">
-                            <!-- Settings content -->
-                             <section class="row toggle-section">
-                                    <p>Detection Enabled</p>
-                                    <label class="toggle">
-                                        <input type="checkbox" id="btnToggle" name="btnToggle" />
-                                        <span class="slider"></span>
-                                    </label>
-                            </section>
+                    <section class="settings-shell">
+                        <div class="section-heading">
+                            <h3>Settings</h3>
+                        </div>
 
-                            <section class="row slider-section">
-                                    <p>Sensitivity</p>
-                                    <div class="custom-slider" id="customSlider">
-                                        <div class="custom-slider-track" id="sliderTrack"></div>
-                                        <div class="custom-slider-thumb" id="sliderThumb"></div>
-                                        <input type="range" id="sensitivitySlider" name="sensitivitySlider" min="0" max="100" value="50" class="hidden-slider">
-                                    </div>
-                            </section>
+                        <section class="settings-group">
+                            <h4>Detection Sensitivity</h4>
+                            <div class="settings-slider-row">
+                                <span>Conservative</span>
+                                <div class="custom-slider large-slider" id="customSlider">
+                                    <div class="custom-slider-track" id="sliderTrack"></div>
+                                    <div class="custom-slider-thumb" id="sliderThumb"></div>
+                                    <input type="range" id="sensitivitySlider" name="sensitivitySlider" min="0" max="100" value="50" class="hidden-slider">
+                                </div>
+                                <span>Strict</span>
+                            </div>
+                        </section>
 
-                            <section class="row mode-section">
-                                    <p>Detection Mode</p>
-                                    <div class="mode-toggle">
-                                        <label class="mode-option">
-                                            <input type="radio" name="detectionMode" value="manual" id="manualMode" checked>
-                                            <span class="mode-label">Manual</span>
-                                        </label>
-                                        <label class="mode-option">
-                                            <input type="radio" name="detectionMode" value="automatic" id="automaticMode">
-                                            <span class="mode-label">Automatic</span>
-                                        </label>
-                                    </div>
-                            </section>
+                        <section class="settings-group">
+                            <h4>Model Settings</h4>
+                            <label class="check-row">
+                                <input type="checkbox" id="btnToggle" name="btnToggle">
+                                <span>Detection enabled</span>
+                            </label>
+                            <div class="row settings-inline-row">
+                                <p>Model</p>
+                                <select id="modelSelect" class="model-select">
+                                    <option value="lightweight">Lightweight CNN v1</option>
+                                    <option value="mesonet">MesoNet</option>
+                                </select>
+                            </div>
+                            <p class="model-help" id="modelHelpText">Lightweight is faster. MesoNet is heavier but intended to be more capable.</p>
+                        </section>
 
-                            <section class="model-section">
-                                    <div class="row">
-                                        <p>Model</p>
-                                        <select id="modelSelect" class="model-select">
-                                            <option value="lightweight">Lightweight</option>
-                                            <option value="mesonet">MesoNet</option>
-                                        </select>
-                                    </div>
-                                    <p class="model-help" id="modelHelpText">Lightweight is faster. MesoNet is heavier but intended to be more capable.</p>
-                            </section>
+                        <section class="settings-group">
+                            <h4>Privacy Settings</h4>
+                            <label class="check-row">
+                                <input type="checkbox" id="anonymousAnalytics">
+                                <span>Allow anonymous analytics (no personal details will be shared)</span>
+                            </label>
+                        </section>
+
+                        <section class="settings-group">
+                            <h4>Explanation Detail Level</h4>
+                            <div class="settings-slider-row">
+                                <span>Basic</span>
+                                <div class="custom-slider large-slider" id="detailSlider">
+                                    <div class="custom-slider-track" id="detailSliderTrack"></div>
+                                    <div class="custom-slider-thumb" id="detailSliderThumb"></div>
+                                    <input type="range" id="detailLevelSlider" min="0" max="100" value="50" class="hidden-slider">
+                                </div>
+                                <span>Detailed</span>
+                            </div>
+                        </section>
+
+                        <section class="settings-group">
+                            <h4>Detection Mode</h4>
+                            <div class="mode-toggle">
+                                <label class="mode-option">
+                                    <input type="radio" name="detectionMode" value="manual" id="manualMode" checked>
+                                    <span class="mode-label">Manual</span>
+                                </label>
+                                <label class="mode-option">
+                                    <input type="radio" name="detectionMode" value="automatic" id="automaticMode">
+                                    <span class="mode-label">Automatic</span>
+                                </label>
+                            </div>
+                        </section>
+
+                        <div class="settings-actions">
+                            <button class="btn btn-primary" id="saveSettingsBtn" type="button">Save</button>
+                            <button class="btn btn-secondary" id="resetSettingsBtn" type="button">Cancel</button>
                         </div>
                     </section>
                 </div>
@@ -216,7 +387,6 @@
         </main>
     </div>
 
-    <!-- Hidden file input for batch upload -->
     <input type="file" id="batchFileInput" accept="image/*,video/*" multiple hidden>
 
     <script src="newtab.js"></script>
