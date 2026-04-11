@@ -104,7 +104,9 @@ class FullAnalysisPlatform {
         this.analysisExplanation = document.getElementById('analysisExplanation');
         this.analysisBreakdown = document.getElementById('analysisBreakdown');
         this.analysisConfidenceGraph = document.getElementById('analysisConfidenceGraph');
+        this.analysisHistoryList = document.getElementById('analysisHistoryList');
         this.prevAnalysisBtn = document.getElementById('prevAnalysisBtn');
+        this.analysisReanalyseBtn = document.getElementById('analysisReanalyseBtn');
         this.nextAnalysisBtn = document.getElementById('nextAnalysisBtn');
 
         this.analyticsAccuracy = document.getElementById('analyticsAccuracy');
@@ -113,6 +115,9 @@ class FullAnalysisPlatform {
         this.distLow = document.getElementById('distLow');
         this.distMedium = document.getElementById('distMedium');
         this.distHigh = document.getElementById('distHigh');
+        this.feedbackAgree = document.getElementById('feedbackAgree');
+        this.feedbackDisagree = document.getElementById('feedbackDisagree');
+        this.feedbackUnsure = document.getElementById('feedbackUnsure');
 
         this.reanalyseList = document.getElementById('reanalyseList');
         this.reanalyseLatestBtn = document.getElementById('reanalyseLatestBtn');
@@ -155,6 +160,7 @@ class FullAnalysisPlatform {
         this.historyFilterSelect?.addEventListener('change', () => this.renderHistory());
 
         this.prevAnalysisBtn?.addEventListener('click', () => this.shiftAnalysis(-1));
+        this.analysisReanalyseBtn?.addEventListener('click', () => this.reanalyseLatest());
         this.nextAnalysisBtn?.addEventListener('click', () => this.shiftAnalysis(1));
         this.reanalyseLatestBtn?.addEventListener('click', () => this.reanalyseLatest());
 
@@ -453,6 +459,7 @@ class FullAnalysisPlatform {
             card.innerHTML = `
                 <div class="activity-score">${Math.round(result.riskScore)}%</div>
                 <div class="activity-label">${riskLevel.label}</div>
+                ${this.getConfidenceGraphMarkup(result.confidence, { compact: true })}
                 <button class="activity-link" type="button">More Info</button>
             `;
             card.querySelector('.activity-link').addEventListener('click', () => this.viewAnalysisById(result.id));
@@ -483,6 +490,40 @@ class FullAnalysisPlatform {
         });
     }
 
+    getConfidenceGraphMarkup(confidence, options = {}) {
+        const normalized = this.normalizePercent(confidence);
+        const sizeClass = options.compact ? ' confidence-spark-compact' : '';
+
+        return `
+            <div class="confidence-spark${sizeClass}" role="img" aria-label="Confidence ${normalized}%">
+                <div class="confidence-spark-head">
+                    <span>Confidence</span>
+                    <strong>${normalized}%</strong>
+                </div>
+            </div>
+        `;
+    }
+
+    getAnalysisRuns(result) {
+        if (!result) {
+            return [];
+        }
+
+        if (Array.isArray(result.analysisRuns) && result.analysisRuns.length > 0) {
+            return [...result.analysisRuns].sort(
+                (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
+            );
+        }
+
+        return [{
+            timestamp: result.timestamp,
+            riskScore: result.riskScore,
+            confidence: result.confidence,
+            model: result.technicalDetails?.model || 'Unknown model',
+            processingTime: result.processingTime
+        }].filter((run) => run.timestamp || Number.isFinite(run.riskScore));
+    }
+
     renderRiskBreakdown() {
         if (!this.riskBreakdown) {
             return;
@@ -500,7 +541,7 @@ class FullAnalysisPlatform {
         breakdown.forEach((item) => {
             const pill = document.createElement('div');
             pill.className = `risk-pill risk-pill-${item.className}`;
-            pill.textContent = `${item.label} ${item.value}%`;
+            pill.innerHTML = `<span>${item.value}%</span><span>${item.label}</span>`;
             this.riskBreakdown.appendChild(pill);
         });
     }
@@ -648,10 +689,11 @@ class FullAnalysisPlatform {
             row.className = 'history-row';
             row.innerHTML = `
                 <div class="history-row-main">
-                    <div class="history-meta">Time: ${this.formatTime(result.timestamp)}</div>
+                    <div class="history-meta">${this.formatDateTime(result.timestamp)}</div>
                     <div class="history-score">${Math.round(result.riskScore)}% ${riskLevel.label}</div>
                     <div class="history-source">${sourceContext.label}: ${sourceContext.value}</div>
                     <div class="history-model">Model: ${modelLabel}</div>
+                    ${this.getConfidenceGraphMarkup(result.confidence)}
                 </div>
                 <button class="history-more" type="button">More Info</button>
             `;
@@ -677,6 +719,7 @@ class FullAnalysisPlatform {
             this.analysisExplanation.textContent = 'Choose a result to view its explanation.';
             this.analysisBreakdown.innerHTML = '<li>Visual: Awaiting data</li><li>Temporal: Awaiting data</li><li>Compression: Awaiting data</li>';
             this.renderMiniChart(this.analysisConfidenceGraph, [], 'bars');
+            this.renderAnalysisHistory(null);
             return;
         }
 
@@ -691,6 +734,41 @@ class FullAnalysisPlatform {
             <li>Compression: ${current.breakdown?.compression || 'Low'}</li>
         `;
         this.renderMiniChart(this.analysisConfidenceGraph, [current.confidence, current.riskScore, 100 - current.riskScore], 'bars');
+        this.renderAnalysisHistory(current);
+    }
+
+    renderAnalysisHistory(result) {
+        if (!this.analysisHistoryList) {
+            return;
+        }
+
+        if (!result) {
+            this.analysisHistoryList.innerHTML = '<div class="analytics-empty-state">No analysis history available for this item yet.</div>';
+            return;
+        }
+
+        const runs = this.getAnalysisRuns(result);
+        if (!runs.length) {
+            this.analysisHistoryList.innerHTML = '<div class="analytics-empty-state">No analysis history available for this item yet.</div>';
+            return;
+        }
+
+        this.analysisHistoryList.innerHTML = runs.map((run, index) => `
+            <article class="analysis-history-row">
+                <div class="analysis-history-row-top">
+                    <span class="analysis-history-badge">${index === 0 ? 'Latest' : `Run ${runs.length - index}`}</span>
+                    <span class="analysis-history-time">${this.formatDateTime(run.timestamp)}</span>
+                </div>
+                <div class="analysis-history-stats">
+                    <div class="analysis-history-stats-row">
+                        <span>${Math.round(run.riskScore || 0)}% score</span>
+                        <span>${Math.round(run.confidence || 0)}% confidence</span>
+                        <span>${Number(run.processingTime) || 0}ms</span>
+                    </div>
+                    <span class="analysis-model">${run.model || 'Unknown model'}</span>
+                </div>
+            </article>
+        `).join('');
     }
 
     async renderMediaPreview(result, riskLevel) {
@@ -742,6 +820,19 @@ class FullAnalysisPlatform {
     }
 
     renderAnalytics() {
+        if (!this.analysisHistory.length) {
+            this.analyticsAccuracy.textContent = '0%';
+            this.analyticsProcessing.textContent = '0ms';
+            this.trendChart.innerHTML = '<div class="analytics-empty-state">No analysis history yet.</div>';
+            this.distLow.style.width = '0%';
+            this.distMedium.style.width = '0%';
+            this.distHigh.style.width = '0%';
+            this.feedbackAgree.textContent = '0%';
+            this.feedbackDisagree.textContent = '0%';
+            this.feedbackUnsure.textContent = '0%';
+            return;
+        }
+
         this.analyticsAccuracy.textContent = `${Math.max(0, 100 - this.statistics.avgRiskScore)}%`;
         this.analyticsProcessing.textContent = `${this.statistics.avgProcessingTime}ms`;
 
@@ -755,6 +846,9 @@ class FullAnalysisPlatform {
         this.distLow.style.width = `${Math.round((lowConfidence / total) * 100)}%`;
         this.distMedium.style.width = `${Math.round((mediumConfidence / total) * 100)}%`;
         this.distHigh.style.width = `${Math.round((highConfidence / total) * 100)}%`;
+        this.feedbackAgree.textContent = '0%';
+        this.feedbackDisagree.textContent = '0%';
+        this.feedbackUnsure.textContent = '0%';
     }
 
     renderReanalyse() {
@@ -773,8 +867,9 @@ class FullAnalysisPlatform {
             const row = document.createElement('article');
             row.className = 'reanalyse-row';
             row.innerHTML = `
-                <div>
+                <div class="reanalyse-row-main">
                     <div class="reanalyse-title">${result.filename || result.source || 'Media item'}</div>
+                    ${this.getConfidenceGraphMarkup(result.confidence)}
                     <div class="reanalyse-meta">${this.formatTime(result.timestamp)} • ${Math.round(result.riskScore)}% score</div>
                 </div>
                 <button class="btn btn-secondary" type="button">Re-analyse</button>
@@ -967,6 +1062,20 @@ class FullAnalysisPlatform {
     formatTime(timestamp) {
         const date = new Date(timestamp);
         return date.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    formatDateTime(timestamp) {
+        if (!timestamp) {
+            return 'Unknown time';
+        }
+
+        const date = new Date(timestamp);
+        return date.toLocaleString([], {
+            day: '2-digit',
+            month: 'short',
             hour: '2-digit',
             minute: '2-digit'
         });

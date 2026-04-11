@@ -539,6 +539,16 @@ class BackgroundService {
                     inferenceTime: `${processingTime}ms`
                 },
                 debug: this.createPersistableResult({ debug: result.debug }, {}, {}).debug,
+                analysisRuns: [
+                    ...this.getAnalysisRuns(existingResult),
+                    this.createAnalysisRun({
+                        timestamp,
+                        riskScore: result.riskScore,
+                        confidence: result.confidence,
+                        processingTime,
+                        technicalDetails: result.technicalDetails
+                    })
+                ],
                 timestamp
             };
 
@@ -991,7 +1001,10 @@ class BackgroundService {
             return {
                 ...result,
                 ...this.buildSourceMetadata(mediaData, sender),
-                mediaPreviewId: result?.id || null
+                mediaPreviewId: result?.id || null,
+                analysisRuns: Array.isArray(result?.analysisRuns) && result.analysisRuns.length
+                    ? result.analysisRuns
+                    : [this.createAnalysisRun(result)]
             };
         }
 
@@ -999,6 +1012,9 @@ class BackgroundService {
             ...result,
             ...this.buildSourceMetadata(mediaData, sender),
             mediaPreviewId: result?.id || null,
+            analysisRuns: Array.isArray(result?.analysisRuns) && result.analysisRuns.length
+                ? result.analysisRuns
+                : [this.createAnalysisRun(result)],
             debug: {
                 capture: result.debug.capture || null,
                 preprocess: result.debug.preprocess
@@ -1009,6 +1025,24 @@ class BackgroundService {
                     : null
             }
         };
+    }
+
+    createAnalysisRun(result = {}) {
+        return {
+            timestamp: result.timestamp || new Date().toISOString(),
+            riskScore: Number(result.riskScore) || 0,
+            confidence: Number(result.confidence) || 0,
+            model: result.technicalDetails?.model || 'Unknown model',
+            processingTime: Number(result.processingTime) || 0
+        };
+    }
+
+    getAnalysisRuns(result = {}) {
+        if (Array.isArray(result.analysisRuns) && result.analysisRuns.length > 0) {
+            return result.analysisRuns;
+        }
+
+        return [this.createAnalysisRun(result)];
     }
 
     buildSourceMetadata(mediaData = {}, sender = {}) {
