@@ -1,9 +1,15 @@
 class FullAnalysisPlatform {
+    static MEDIA_DB_NAME = 'deepfake-media-store';
+
+    static MEDIA_STORE_NAME = 'analysis-media';
+
     constructor() {
         this.analysisHistory = [];
         this.filteredHistory = [];
         this.currentAnalysisIndex = 0;
         this.currentPage = 'dashboard';
+        this.mediaDbPromise = null;
+        this.mediaRenderToken = 0;
         this.statistics = {
             totalAnalyzed: 0,
             highRiskCount: 0,
@@ -64,6 +70,7 @@ class FullAnalysisPlatform {
         this.navItems = document.querySelectorAll('.nav-item');
         this.pages = document.querySelectorAll('.page');
         this.pageTitle = document.getElementById('pageTitle');
+        this.pageContext = document.querySelector('.page-context');
         this.currentContextLabel = document.getElementById('currentContextLabel');
         this.currentWebsite = document.getElementById('currentWebsite');
         this.headerActionBtn = document.getElementById('headerActionBtn');
@@ -93,6 +100,7 @@ class FullAnalysisPlatform {
 
         this.analysisCanvas = document.getElementById('analysisCanvas');
         this.analysisResultLabel = document.getElementById('analysisResultLabel');
+        this.analysisModelLabel = document.getElementById('analysisModelLabel');
         this.analysisExplanation = document.getElementById('analysisExplanation');
         this.analysisBreakdown = document.getElementById('analysisBreakdown');
         this.analysisConfidenceGraph = document.getElementById('analysisConfidenceGraph');
@@ -204,6 +212,7 @@ class FullAnalysisPlatform {
         this.pageTitle.textContent = header.title;
         this.headerActionBtn.hidden = !header.showAction;
         this.headerActionBtn.textContent = header.actionLabel || '';
+        this.updateCurrentWebsite();
     }
 
     handleHeaderAction() {
@@ -258,23 +267,8 @@ class FullAnalysisPlatform {
     }
 
     async analyzeFile(file) {
-        const startTime = Date.now();
-
         try {
-            const result = await this.runAnalysis(file);
-            const processingTime = Date.now() - startTime;
-            const analysisResult = {
-                id: Date.now() + Math.random(),
-                filename: file.name,
-                size: file.size,
-                type: file.type,
-                source: 'Upload',
-                sourceType: 'upload',
-                timestamp: new Date().toISOString(),
-                processingTime,
-                ...result
-            };
-
+            const analysisResult = await this.runUploadAnalysis(file);
             this.analysisHistory.unshift(analysisResult);
         } catch (error) {
             console.error('Analysis error:', error);
@@ -282,57 +276,22 @@ class FullAnalysisPlatform {
         }
     }
 
-    async runAnalysis(file) {
-        const processingDelay = Math.min(2000, Math.max(500, file.size / 12000));
-        await this.delay(processingDelay);
-
-        const riskScore = Math.random() * 100;
-        const confidence = 70 + Math.random() * 25;
-        const source = file.type.startsWith('video/') ? 'Uploaded video' : 'Uploaded image';
-
-        return {
-            riskScore,
-            confidence,
-            explanation: this.generateExplanation(riskScore),
-            source,
-            breakdown: this.generateBreakdown(riskScore)
-        };
-    }
-
-    generateExplanation(riskScore) {
-        if (riskScore >= 66) {
-            return 'Facial inconsistencies, blending seams, and motion timing suggest synthetic manipulation.';
+    async runUploadAnalysis(file) {
+        if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+            throw new Error('Chrome APIs not available. Please refresh and try again.');
         }
 
-        if (riskScore >= 33) {
-            return 'Some irregular edges and confidence instability were detected, but the signal is mixed.';
+        const payload = await this.createUploadedMediaPayload(file);
+        const response = await chrome.runtime.sendMessage({
+            action: 'analyzeUploadedMedia',
+            data: payload
+        });
+
+        if (!response?.success) {
+            throw new Error(response?.error?.userMessage || response?.error?.message || 'Upload analysis failed.');
         }
 
-        return 'No strong deepfake markers were found. The media appears broadly authentic with low-risk characteristics.';
-    }
-
-    generateBreakdown(riskScore) {
-        if (riskScore >= 66) {
-            return {
-                visual: 'High',
-                temporal: 'Medium',
-                compression: 'Low'
-            };
-        }
-
-        if (riskScore >= 33) {
-            return {
-                visual: 'Medium',
-                temporal: 'Low',
-                compression: 'Medium'
-            };
-        }
-
-        return {
-            visual: 'Low',
-            temporal: 'Low',
-            compression: 'Low'
-        };
+        return response.result;
     }
 
     getRiskLevel(score) {
@@ -364,6 +323,7 @@ class FullAnalysisPlatform {
 
         this.currentAnalysisIndex = (this.currentAnalysisIndex + direction + this.analysisHistory.length) % this.analysisHistory.length;
         this.renderMediaAnalysis();
+        this.updateCurrentWebsite();
     }
 
     viewAnalysisById(resultId) {
@@ -376,23 +336,60 @@ class FullAnalysisPlatform {
         this.navigateToPage('media-analysis');
     }
 
-    reanalyseLatest() {
+    async reanalyseLatest() {
         const target = this.getCurrentAnalysis();
         if (!target) {
             this.showError('No previous analyses available');
             return;
         }
 
-        target.riskScore = Math.min(100, Math.max(0, target.riskScore + (Math.random() * 10 - 5)));
-        target.confidence = Math.min(99, Math.max(50, target.confidence + (Math.random() * 8 - 4)));
-        target.processingTime = Math.max(80, Math.round(target.processingTime * (0.9 + Math.random() * 0.2)));
-        target.timestamp = new Date().toISOString();
-        target.explanation = this.generateExplanation(target.riskScore);
-        target.breakdown = this.generateBreakdown(target.riskScore);
+        if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+            this.showError('Chrome APIs not available. Please refresh and try again.');
+            return;
+        }
 
-        this.updateStatistics();
-        this.saveData();
-        this.navigateToPage('media-analysis');
+        this.updateStatus('processing', 'Re-analysing media...');
+
+        try {
+            const reanalysisData = {
+                existingResult: target,
+                sensitivity: this.settings.sensitivity
+            };
+
+            if (target.sourceType === 'upload') {
+                const previewRecord = await this.getMediaPreview(target.mediaPreviewId || target.id);
+                if (previewRecord?.previewDataUrl) {
+                    reanalysisData.uploadPreviewDataUrl = previewRecord.previewDataUrl;
+                    reanalysisData.uploadPreviewMimeType = 'image/png';
+                }
+            }
+
+            const response = await chrome.runtime.sendMessage({
+                action: 'reanalyzeStoredMedia',
+                data: reanalysisData
+            });
+
+            if (!response?.success) {
+                throw new Error(response?.error?.userMessage || response?.error?.message || 'Re-analysis failed.');
+            }
+
+            const updatedResult = response.result;
+            const index = this.analysisHistory.findIndex((entry) => String(entry.id) === String(updatedResult.id));
+            if (index !== -1) {
+                this.analysisHistory[index] = updatedResult;
+                this.currentAnalysisIndex = index;
+            }
+
+            this.updateStatistics();
+            this.saveData();
+            this.renderAll();
+            this.navigateToPage('media-analysis');
+        } catch (error) {
+            console.error('Re-analysis error:', error);
+            this.showError(error.message || 'Re-analysis failed.');
+        } finally {
+            this.updateStatus('', 'Ready');
+        }
     }
 
     updateStatistics() {
@@ -426,7 +423,6 @@ class FullAnalysisPlatform {
         this.renderMiniChart(this.flagRateChart, this.analysisHistory.slice(0, 12).map((item) => item.riskScore || 0), 'wave');
         this.renderMiniChart(this.confidenceChart, this.analysisHistory.slice(0, 12).map((item) => item.confidence || 0), 'bars');
         this.renderRiskBreakdown();
-        this.updateCurrentWebsite();
     }
 
     renderRecentActivity() {
@@ -502,19 +498,41 @@ class FullAnalysisPlatform {
     }
 
     updateCurrentWebsite() {
-        const contextResult = this.getContextResult();
-        const context = this.getSourceContext(contextResult);
+        if (!this.pageContext || !this.currentContextLabel || !this.currentWebsite) {
+            return;
+        }
+
+        if (this.currentPage !== 'dashboard' && this.currentPage !== 'media-analysis') {
+            this.pageContext.hidden = true;
+            return;
+        }
+
+        const context = this.currentPage === 'dashboard'
+            ? this.getDashboardContext()
+            : this.getSourceContext(this.getCurrentAnalysis());
+
+        this.pageContext.hidden = false;
         this.currentContextLabel.textContent = context.label;
         this.currentWebsite.textContent = context.value;
     }
 
-    getContextResult() {
-        const currentAnalysis = this.getCurrentAnalysis();
-        if (currentAnalysis) {
-            return currentAnalysis;
+    getDashboardContext() {
+        const latestWebsiteResult = this.analysisHistory.find((entry) => {
+            const sourceContext = this.getSourceContext(entry);
+            return sourceContext.label === 'Selected Website';
+        });
+
+        if (latestWebsiteResult) {
+            return {
+                label: 'Current Website',
+                value: this.getSourceContext(latestWebsiteResult).value
+            };
         }
 
-        return this.analysisHistory[0] || null;
+        return {
+            label: 'Current Website',
+            value: 'No website analysis available yet'
+        };
     }
 
     getSourceContext(result) {
@@ -530,14 +548,14 @@ class FullAnalysisPlatform {
 
         if (result.sourceType === 'upload' || result.filename) {
             return {
-                label: 'Current File',
+                label: 'Selected File',
                 value: result.filename || result.source || 'Uploaded media'
             };
         }
 
         if (result.pageHostname || result.pageUrl || result.mediaHostname || legacyMediaHostname) {
             return {
-                label: 'Current Website',
+                label: 'Selected Website',
                 value:
                     result.pageHostname ||
                     result.pageUrl ||
@@ -552,13 +570,13 @@ class FullAnalysisPlatform {
 
         if (result.mediaUrl || legacyMediaUrl) {
             return {
-                label: 'Current Media Source',
+                label: 'Selected Media Source',
                 value: result.mediaUrl || legacyMediaUrl
             };
         }
 
         return {
-            label: 'Current Source',
+            label: 'Selected Source',
             value: result.source || result.filename || 'Scanned media item'
         };
     }
@@ -616,13 +634,16 @@ class FullAnalysisPlatform {
 
         items.forEach((result) => {
             const riskLevel = this.getRiskLevel(result.riskScore);
+            const sourceContext = this.getSourceContext(result);
+            const modelLabel = result.technicalDetails?.model || 'Unknown model';
             const row = document.createElement('article');
             row.className = 'history-row';
             row.innerHTML = `
                 <div class="history-row-main">
                     <div class="history-meta">Time: ${this.formatTime(result.timestamp)}</div>
                     <div class="history-score">${Math.round(result.riskScore)}% ${riskLevel.label}</div>
-                    <div class="history-source">Source: ${result.filename || result.source || 'Unknown source'}</div>
+                    <div class="history-source">${sourceContext.label}: ${sourceContext.value}</div>
+                    <div class="history-model">Model: ${modelLabel}</div>
                 </div>
                 <button class="history-more" type="button">More Info</button>
             `;
@@ -633,6 +654,7 @@ class FullAnalysisPlatform {
 
     renderMediaAnalysis() {
         const current = this.getCurrentAnalysis();
+        this.updateCurrentWebsite();
 
         if (!current) {
             this.analysisCanvas.innerHTML = `
@@ -643,6 +665,7 @@ class FullAnalysisPlatform {
                 </div>
             `;
             this.analysisResultLabel.textContent = 'No result selected';
+            this.analysisModelLabel.textContent = 'Awaiting data';
             this.analysisExplanation.textContent = 'Choose a result to view its explanation.';
             this.analysisBreakdown.innerHTML = '<li>Visual: Awaiting data</li><li>Temporal: Awaiting data</li><li>Compression: Awaiting data</li>';
             this.renderMiniChart(this.analysisConfidenceGraph, [], 'bars');
@@ -650,16 +673,9 @@ class FullAnalysisPlatform {
         }
 
         const riskLevel = this.getRiskLevel(current.riskScore);
-        this.analysisCanvas.innerHTML = `
-            <div class="analysis-media-card risk-${riskLevel.class}">
-                <div class="analysis-file-badge">${current.filename || current.source || 'Media item'}</div>
-                <div class="analysis-score-ring">
-                    <span>${Math.round(current.riskScore)}%</span>
-                </div>
-                <div class="analysis-caption">${riskLevel.label} signal with ${Math.round(current.confidence)}% confidence</div>
-            </div>
-        `;
+        this.renderMediaPreview(current, riskLevel);
         this.analysisResultLabel.textContent = `${Math.round(current.riskScore)}% ${riskLevel.label.toLowerCase()}`;
+        this.analysisModelLabel.textContent = current.technicalDetails?.model || 'Unknown model';
         this.analysisExplanation.textContent = current.explanation;
         this.analysisBreakdown.innerHTML = `
             <li>Visual: ${current.breakdown?.visual || 'Low'}</li>
@@ -667,6 +683,54 @@ class FullAnalysisPlatform {
             <li>Compression: ${current.breakdown?.compression || 'Low'}</li>
         `;
         this.renderMiniChart(this.analysisConfidenceGraph, [current.confidence, current.riskScore, 100 - current.riskScore], 'bars');
+    }
+
+    async renderMediaPreview(result, riskLevel) {
+        const token = ++this.mediaRenderToken;
+        this.analysisCanvas.innerHTML = `
+            <div class="analysis-placeholder">
+                <div class="placeholder-symbol">↔</div>
+                <div class="placeholder-title">Loading analysed media</div>
+                <div class="placeholder-copy">Retrieving the saved preview for this analysis item.</div>
+            </div>
+        `;
+
+        const previewRecord = await this.getMediaPreview(result.mediaPreviewId || result.id);
+        if (token !== this.mediaRenderToken) {
+            return;
+        }
+
+        if (previewRecord?.previewDataUrl) {
+            const mediaTag = previewRecord.mediaType === 'video'
+                ? `<img class="analysis-preview-image" src="${previewRecord.previewDataUrl}" alt="Stored video preview">`
+                : `<img class="analysis-preview-image" src="${previewRecord.previewDataUrl}" alt="Stored media preview">`;
+
+            this.analysisCanvas.innerHTML = `
+                <div class="analysis-preview-card risk-${riskLevel.class}">
+                    <div class="analysis-file-badge">${result.filename || result.source || 'Media item'}</div>
+                    <div class="analysis-preview-frame">
+                        ${mediaTag}
+                    </div>
+                    <div class="analysis-preview-footer">
+                        <div class="analysis-score-ring">
+                            <span>${Math.round(result.riskScore)}%</span>
+                        </div>
+                        <div class="analysis-caption">${riskLevel.label} signal with ${Math.round(result.confidence)}% confidence</div>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        this.analysisCanvas.innerHTML = `
+            <div class="analysis-media-card risk-${riskLevel.class}">
+                <div class="analysis-file-badge">${result.filename || result.source || 'Media item'}</div>
+                <div class="analysis-score-ring">
+                    <span>${Math.round(result.riskScore)}%</span>
+                </div>
+                <div class="analysis-caption">${riskLevel.label} signal with ${Math.round(result.confidence)}% confidence</div>
+            </div>
+        `;
     }
 
     renderAnalytics() {
@@ -808,6 +872,9 @@ class FullAnalysisPlatform {
             return;
         }
 
+        this.clearMediaPreviews().catch((error) => {
+            console.warn('Deepfake Detection: Failed to clear IndexedDB previews.', error);
+        });
         this.analysisHistory = [];
         this.currentAnalysisIndex = 0;
         this.updateStatistics();
@@ -850,7 +917,11 @@ class FullAnalysisPlatform {
         chrome.storage.local.get(
             ['analysisHistory', 'statistics', 'detectionEnabled', 'sensitivity', 'detectionMode', 'modelKey', 'detailLevel', 'anonymousAnalytics'],
             (result) => {
-                this.analysisHistory = Array.isArray(result.analysisHistory) ? result.analysisHistory : [];
+                this.analysisHistory = Array.isArray(result.analysisHistory)
+                    ? [...result.analysisHistory].sort(
+                        (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
+                    )
+                    : [];
                 this.statistics = result.statistics ? { ...this.statistics, ...result.statistics } : this.statistics;
                 this.settings = {
                     detectionEnabled: Boolean(result.detectionEnabled),
@@ -861,11 +932,11 @@ class FullAnalysisPlatform {
                     anonymousAnalytics: Boolean(result.anonymousAnalytics)
                 };
 
-                this.updateStatistics();
-                this.renderAll();
                 if (this.analysisHistory.length > 0) {
                     this.currentAnalysisIndex = 0;
                 }
+                this.updateStatistics();
+                this.renderAll();
             }
         );
     }
@@ -908,6 +979,173 @@ class FullAnalysisPlatform {
         } catch {
             return '';
         }
+    }
+
+    async openMediaStore() {
+        if (this.mediaDbPromise) {
+            return this.mediaDbPromise;
+        }
+
+        this.mediaDbPromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open(FullAnalysisPlatform.MEDIA_DB_NAME, 1);
+
+            request.onupgradeneeded = () => {
+                const db = request.result;
+                if (!db.objectStoreNames.contains(FullAnalysisPlatform.MEDIA_STORE_NAME)) {
+                    db.createObjectStore(FullAnalysisPlatform.MEDIA_STORE_NAME, { keyPath: 'id' });
+                }
+            };
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+
+        return this.mediaDbPromise;
+    }
+
+    async getMediaPreview(id) {
+        if (!id) {
+            return null;
+        }
+
+        const db = await this.openMediaStore();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(FullAnalysisPlatform.MEDIA_STORE_NAME, 'readonly');
+            const store = transaction.objectStore(FullAnalysisPlatform.MEDIA_STORE_NAME);
+            const request = store.get(String(id));
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async clearMediaPreviews() {
+        const db = await this.openMediaStore();
+        await new Promise((resolve, reject) => {
+            const transaction = db.transaction(FullAnalysisPlatform.MEDIA_STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(FullAnalysisPlatform.MEDIA_STORE_NAME);
+            store.clear();
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+        });
+    }
+
+    readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    readFileAsArrayBuffer(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
+    async createUploadedMediaPayload(file) {
+        if (file.type.startsWith('image/')) {
+            return {
+                mediaKind: 'image-file',
+                sourceType: 'upload',
+                filename: file.name,
+                originalType: file.type,
+                mimeType: file.type,
+                size: file.size,
+                sensitivity: this.settings.sensitivity,
+                imageBytes: await this.readFileAsArrayBuffer(file)
+            };
+        }
+
+        if (file.type.startsWith('video/')) {
+            const imageDataUrl = await this.createVideoPreviewDataUrl(file, 960, 640);
+            if (!imageDataUrl) {
+                throw new Error('Could not extract a frame from this uploaded video.');
+            }
+
+            return {
+                mediaKind: 'video-frame',
+                sourceType: 'upload',
+                filename: file.name,
+                originalType: file.type,
+                size: file.size,
+                sensitivity: this.settings.sensitivity,
+                imageDataUrl
+            };
+        }
+
+        throw new Error('Unsupported upload type.');
+    }
+
+    downscaleImageDataUrl(dataUrl, maxWidth, maxHeight) {
+        return new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => {
+                const ratio = Math.min(1, maxWidth / image.width, maxHeight / image.height);
+                const width = Math.max(1, Math.round(image.width * ratio));
+                const height = Math.max(1, Math.round(image.height * ratio));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    resolve(dataUrl);
+                    return;
+                }
+
+                context.drawImage(image, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            image.onerror = () => reject(new Error('Failed to load uploaded image for preview.'));
+            image.src = dataUrl;
+        });
+    }
+
+    createVideoPreviewDataUrl(file, maxWidth, maxHeight) {
+        return new Promise((resolve) => {
+            const objectUrl = URL.createObjectURL(file);
+            const video = document.createElement('video');
+            video.preload = 'metadata';
+            video.muted = true;
+            video.playsInline = true;
+
+            const cleanup = () => {
+                URL.revokeObjectURL(objectUrl);
+                video.remove();
+            };
+
+            video.onloadeddata = () => {
+                const ratio = Math.min(1, maxWidth / video.videoWidth, maxHeight / video.videoHeight);
+                const width = Math.max(1, Math.round(video.videoWidth * ratio));
+                const height = Math.max(1, Math.round(video.videoHeight * ratio));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    cleanup();
+                    resolve(null);
+                    return;
+                }
+
+                context.drawImage(video, 0, 0, width, height);
+                const preview = canvas.toDataURL('image/png');
+                cleanup();
+                resolve(preview);
+            };
+
+            video.onerror = () => {
+                cleanup();
+                resolve(null);
+            };
+
+            video.src = objectUrl;
+        });
     }
 
     delay(ms) {

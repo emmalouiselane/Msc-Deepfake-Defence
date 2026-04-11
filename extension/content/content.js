@@ -27,6 +27,11 @@ class ContentScript {
 
     async loadInitialSettings() {
         try {
+            if (!this.isExtensionContextAvailable()) {
+                this.handleInvalidatedContext();
+                return Promise.resolve();
+            }
+
             console.log('Deepfake Detection: Loading initial settings...');
             
             // First, check what's actually in storage
@@ -55,6 +60,10 @@ class ContentScript {
             
         } catch (error) {
             console.error('Deepfake Detection: Error loading settings', error);
+            if (this.isContextInvalidationError(error)) {
+                this.handleInvalidatedContext();
+                return Promise.resolve();
+            }
             // Set defaults on error
             this.isEnabled = false;
             this.sensitivity = 50;
@@ -64,6 +73,11 @@ class ContentScript {
     }
 
     attachEventListeners() {
+        if (!this.isExtensionContextAvailable()) {
+            this.handleInvalidatedContext();
+            return;
+        }
+
         // Listen for messages from background script
         chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             this.handleMessage(message, sender, sendResponse);
@@ -635,8 +649,9 @@ class ContentScript {
     async analyzeMedia(media) {
         try {
             // Check if Chrome APIs are available
-            if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
-                throw new Error('Chrome APIs not available. Please refresh the page and try again.');
+            if (!this.isExtensionContextAvailable()) {
+                this.handleInvalidatedContext();
+                return;
             }
 
             await this.ensureMediaVisible(media.element);
@@ -656,8 +671,29 @@ class ContentScript {
             }
         } catch (error) {
             console.error('Analysis error:', error);
+            if (this.isContextInvalidationError(error)) {
+                this.handleInvalidatedContext();
+                return;
+            }
             this.showError('Analysis failed. Please try again.');
         }
+    }
+
+    isExtensionContextAvailable() {
+        try {
+            return Boolean(typeof chrome !== 'undefined' && chrome.runtime?.id && chrome.runtime?.sendMessage);
+        } catch {
+            return false;
+        }
+    }
+
+    isContextInvalidationError(error) {
+        const message = error?.message || '';
+        return /Extension context invalidated/i.test(message);
+    }
+
+    handleInvalidatedContext() {
+        this.showError('Extension updated. Refresh this page to reconnect the deepfake detector.');
     }
 
     showAnalysisResult(result) {

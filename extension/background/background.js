@@ -2,10 +2,15 @@ import * as ort from '../dist/ort.wasm.bundle.min.mjs';
 
 // Deepfake Detection Extension - Background Service Worker
 class BackgroundService {
+    static MEDIA_DB_NAME = 'deepfake-media-store';
+
+    static MEDIA_STORE_NAME = 'analysis-media';
+
     constructor() {
         this.modelSession = null;
         this.modelInitialized = false;
         this.ort = null;
+        this.mediaDbPromise = null;
         this.modelRegistry = {
             lightweight: {
                 key: 'lightweight',
@@ -93,6 +98,26 @@ class BackgroundService {
 
                 case 'analyzeMedia': {
                     const result = await this.analyzeMedia(message.data || {}, sender);
+                    if (result.success === false) {
+                        sendResponse({ success: false, error: result.error });
+                    } else {
+                        sendResponse({ success: true, result });
+                    }
+                    return;
+                }
+
+                case 'analyzeUploadedMedia': {
+                    const result = await this.analyzeUploadedMedia(message.data || {}, sender);
+                    if (result.success === false) {
+                        sendResponse({ success: false, error: result.error });
+                    } else {
+                        sendResponse({ success: true, result });
+                    }
+                    return;
+                }
+
+                case 'reanalyzeStoredMedia': {
+                    const result = await this.reanalyzeStoredMedia(message.data || {}, sender);
                     if (result.success === false) {
                         sendResponse({ success: false, error: result.error });
                     } else {
@@ -326,8 +351,11 @@ class BackgroundService {
             const startedAt = Date.now();
             const result = await this.runDirectInference(imageBitmap, sensitivity, imageDebug);
             const processingTime = Date.now() - startedAt;
+            const analysisId = crypto.randomUUID();
+            const previewDataUrl = await this.createDebugPreviewDataUrl(imageBitmap, 480, 320);
 
             const analysisResult = {
+                id: analysisId,
                 riskScore: result.riskScore,
                 confidence: result.confidence,
                 processingTime,
@@ -340,6 +368,14 @@ class BackgroundService {
                 timestamp: new Date().toISOString()
             };
 
+            await this.saveMediaPreview({
+                id: analysisId,
+                previewDataUrl,
+                mediaType: mediaData?.type || 'image',
+                mediaUrl: mediaData?.src || '',
+                pageUrl: sender?.tab?.url || '',
+                storedAt: analysisResult.timestamp
+            });
             await this.saveAnalysisResult(this.createPersistableResult(analysisResult, mediaData, sender));
             return analysisResult;
         } catch (error) {
@@ -349,6 +385,170 @@ class BackgroundService {
                 stack: error?.stack,
                 mediaType: mediaData?.type,
                 mediaUrl: mediaData?.src
+            });
+            return this.createErrorResult(error);
+        } finally {
+            if (imageBitmap && typeof imageBitmap.close === 'function') {
+                imageBitmap.close();
+            }
+        }
+    }
+
+    async analyzeUploadedMedia(mediaData, sender) {
+        let imageBitmap;
+
+        try {
+            const sensitivity = mediaData?.sensitivity !== undefined
+                ? this.normalizeSensitivity(mediaData.sensitivity)
+                : this.normalizeSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity);
+
+            await this.ensureModelInitialized();
+
+            imageBitmap = await this.loadUploadedImageBitmap(mediaData);
+            const startedAt = Date.now();
+            const result = await this.runDirectInference(imageBitmap, sensitivity, {
+                strategy: 'uploaded-media',
+                filename: mediaData?.filename || '',
+                mediaKind: mediaData?.mediaKind || 'image-file'
+            });
+            const processingTime = Date.now() - startedAt;
+            const analysisId = crypto.randomUUID();
+            const previewDataUrl = await this.createDebugPreviewDataUrl(imageBitmap, 480, 320);
+
+            const analysisResult = {
+                id: analysisId,
+                filename: mediaData?.filename || 'Uploaded media',
+                size: Number(mediaData?.size) || 0,
+                type: mediaData?.originalType || mediaData?.mimeType || 'image/*',
+                source: mediaData?.originalType?.startsWith('video/') ? 'Uploaded video' : 'Uploaded image',
+                sourceType: 'upload',
+                riskScore: result.riskScore,
+                confidence: result.confidence,
+                processingTime,
+                explanation: this.generateExplanation(result.riskScore, sensitivity),
+                technicalDetails: {
+                    ...result.technicalDetails,
+                    inferenceTime: `${processingTime}ms`
+                },
+                debug: result.debug,
+                timestamp: new Date().toISOString()
+            };
+
+            await this.saveMediaPreview({
+                id: analysisId,
+                previewDataUrl,
+                mediaType: mediaData?.originalType?.startsWith('video/') ? 'video' : 'image',
+                fileName: mediaData?.filename || 'Uploaded media',
+                storedAt: analysisResult.timestamp
+            });
+
+            const persistableResult = this.createPersistableResult(analysisResult, mediaData, sender);
+            await this.saveAnalysisResult(persistableResult);
+            return persistableResult;
+        } catch (error) {
+            console.error('Deepfake Detection: Uploaded media analysis failed:', {
+                name: error?.name,
+                message: error?.message,
+                filename: mediaData?.filename,
+                mediaKind: mediaData?.mediaKind
+            });
+            return this.createErrorResult(error);
+        } finally {
+            if (imageBitmap && typeof imageBitmap.close === 'function') {
+                imageBitmap.close();
+            }
+        }
+    }
+
+    async reanalyzeStoredMedia(mediaData, sender) {
+        let imageBitmap;
+
+        try {
+            const existingResult = mediaData?.existingResult;
+            if (!existingResult?.id) {
+                throw new Error('No stored analysis result was provided for re-analysis.');
+            }
+
+            const sensitivity = mediaData?.sensitivity !== undefined
+                ? this.normalizeSensitivity(mediaData.sensitivity)
+                : this.normalizeSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity);
+
+            await this.ensureModelInitialized();
+
+            if (existingResult.sourceType === 'upload') {
+                const previewDataUrl = mediaData?.uploadPreviewDataUrl
+                    || (await this.getMediaPreview(existingResult.mediaPreviewId || existingResult.id))?.previewDataUrl;
+
+                if (!previewDataUrl) {
+                    throw new Error('No stored preview is available for this uploaded media.');
+                }
+
+                imageBitmap = await this.loadUploadedImageBitmap({
+                    imageDataUrl: previewDataUrl,
+                    originalType: existingResult.originalType || existingResult.type,
+                    mimeType: mediaData?.uploadPreviewMimeType || 'image/png'
+                });
+            } else {
+                const mediaUrl = existingResult.mediaUrl || existingResult.debug?.capture?.mediaUrl;
+                if (mediaUrl) {
+                    imageBitmap = await this.loadImageBitmapFromUrl(mediaUrl);
+                } else {
+                    const previewRecord = await this.getMediaPreview(existingResult.mediaPreviewId || existingResult.id);
+                    if (!previewRecord?.previewDataUrl) {
+                        throw new Error('No media URL is available for this stored website analysis.');
+                    }
+
+                    imageBitmap = await this.loadUploadedImageBitmap({
+                        imageDataUrl: previewRecord.previewDataUrl,
+                        originalType: existingResult.originalType || existingResult.type,
+                        mimeType: 'image/png'
+                    });
+                }
+            }
+
+            const startedAt = Date.now();
+            const result = await this.runDirectInference(imageBitmap, sensitivity, {
+                strategy: existingResult.sourceType === 'upload' ? 'reanalyse-uploaded-preview' : 'reanalyse-web-media',
+                filename: existingResult.filename || '',
+                mediaUrl: existingResult.mediaUrl || existingResult.debug?.capture?.mediaUrl || ''
+            });
+            const processingTime = Date.now() - startedAt;
+            const previewDataUrl = await this.createDebugPreviewDataUrl(imageBitmap, 480, 320);
+            const timestamp = new Date().toISOString();
+
+            if (previewDataUrl) {
+                await this.saveMediaPreview({
+                    id: existingResult.mediaPreviewId || existingResult.id,
+                    previewDataUrl,
+                    mediaType: existingResult.originalType?.startsWith('video/') ? 'video' : 'image',
+                    mediaUrl: existingResult.mediaUrl || '',
+                    pageUrl: existingResult.pageUrl || '',
+                    fileName: existingResult.filename || '',
+                    storedAt: timestamp
+                });
+            }
+
+            const updatedResult = {
+                ...existingResult,
+                riskScore: result.riskScore,
+                confidence: result.confidence,
+                processingTime,
+                explanation: this.generateExplanation(result.riskScore, sensitivity),
+                technicalDetails: {
+                    ...result.technicalDetails,
+                    inferenceTime: `${processingTime}ms`
+                },
+                debug: this.createPersistableResult({ debug: result.debug }, {}, {}).debug,
+                timestamp
+            };
+
+            await this.updateAnalysisResult(updatedResult.id, updatedResult);
+            return updatedResult;
+        } catch (error) {
+            console.error('Deepfake Detection: Re-analysis failed:', {
+                name: error?.name,
+                message: error?.message,
+                analysisId: mediaData?.existingResult?.id
             });
             return this.createErrorResult(error);
         } finally {
@@ -585,6 +785,24 @@ class BackgroundService {
         }
     }
 
+    async loadUploadedImageBitmap(mediaData) {
+        if (mediaData?.imageBytes) {
+            const buffer = mediaData.imageBytes instanceof ArrayBuffer
+                ? mediaData.imageBytes
+                : mediaData.imageBytes.buffer;
+            const blob = new Blob([buffer], { type: mediaData?.mimeType || 'image/png' });
+            return createImageBitmap(blob);
+        }
+
+        if (mediaData?.imageDataUrl) {
+            const response = await fetch(mediaData.imageDataUrl);
+            const blob = await response.blob();
+            return createImageBitmap(blob);
+        }
+
+        throw new Error('No uploaded image payload was provided for analysis.');
+    }
+
     async runDirectInference(imageBitmap, sensitivity, imageDebug = {}) {
         const preprocessing = await this.preprocessImage(imageBitmap);
         const inputTensor = preprocessing.inputTensor;
@@ -772,13 +990,15 @@ class BackgroundService {
         if (!result?.debug) {
             return {
                 ...result,
-                ...this.buildSourceMetadata(mediaData, sender)
+                ...this.buildSourceMetadata(mediaData, sender),
+                mediaPreviewId: result?.id || null
             };
         }
 
         return {
             ...result,
             ...this.buildSourceMetadata(mediaData, sender),
+            mediaPreviewId: result?.id || null,
             debug: {
                 capture: result.debug.capture || null,
                 preprocess: result.debug.preprocess
@@ -795,7 +1015,7 @@ class BackgroundService {
         const mediaUrl = mediaData?.src || '';
         const pageUrl = sender?.tab?.url || '';
         const pageTitle = sender?.tab?.title || '';
-        const sourceType = /^https?:/i.test(mediaUrl) ? 'web' : 'unknown';
+        const sourceType = mediaData?.sourceType || (/^https?:/i.test(mediaUrl) ? 'web' : 'unknown');
 
         return {
             sourceType,
@@ -803,8 +1023,67 @@ class BackgroundService {
             mediaHostname: this.getHostname(mediaUrl),
             pageUrl,
             pageHostname: this.getHostname(pageUrl),
-            pageTitle
+            pageTitle,
+            filename: mediaData?.filename || undefined,
+            originalType: mediaData?.originalType || undefined
         };
+    }
+
+    async openMediaStore() {
+        if (this.mediaDbPromise) {
+            return this.mediaDbPromise;
+        }
+
+        this.mediaDbPromise = new Promise((resolve, reject) => {
+            const request = indexedDB.open(BackgroundService.MEDIA_DB_NAME, 1);
+
+            request.onupgradeneeded = () => {
+                const db = request.result;
+                if (!db.objectStoreNames.contains(BackgroundService.MEDIA_STORE_NAME)) {
+                    db.createObjectStore(BackgroundService.MEDIA_STORE_NAME, { keyPath: 'id' });
+                }
+            };
+
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+
+        return this.mediaDbPromise;
+    }
+
+    async saveMediaPreview(record) {
+        if (!record?.id || !record.previewDataUrl) {
+            return;
+        }
+
+        try {
+            const db = await this.openMediaStore();
+            await new Promise((resolve, reject) => {
+                const transaction = db.transaction(BackgroundService.MEDIA_STORE_NAME, 'readwrite');
+                const store = transaction.objectStore(BackgroundService.MEDIA_STORE_NAME);
+                store.put(record);
+                transaction.oncomplete = () => resolve();
+                transaction.onerror = () => reject(transaction.error);
+                transaction.onabort = () => reject(transaction.error);
+            });
+        } catch (error) {
+            console.warn('Deepfake Detection: Failed to store media preview in IndexedDB.', error);
+        }
+    }
+
+    async getMediaPreview(id) {
+        if (!id) {
+            return null;
+        }
+
+        const db = await this.openMediaStore();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(BackgroundService.MEDIA_STORE_NAME, 'readonly');
+            const store = transaction.objectStore(BackgroundService.MEDIA_STORE_NAME);
+            const request = store.get(String(id));
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error);
+        });
     }
 
     createErrorResult(error) {
@@ -867,6 +1146,20 @@ class BackgroundService {
         const data = await chrome.storage.local.get(['analysisHistory', 'statistics']);
         const history = Array.isArray(data.analysisHistory) ? data.analysisHistory : [];
         const updatedHistory = [...history, result];
+        const statistics = this.buildStatistics(updatedHistory);
+
+        await chrome.storage.local.set({
+            analysisHistory: updatedHistory,
+            statistics
+        });
+    }
+
+    async updateAnalysisResult(resultId, updatedResult) {
+        const data = await chrome.storage.local.get(['analysisHistory', 'statistics']);
+        const history = Array.isArray(data.analysisHistory) ? data.analysisHistory : [];
+        const updatedHistory = history.map((entry) =>
+            String(entry.id) === String(resultId) ? updatedResult : entry
+        );
         const statistics = this.buildStatistics(updatedHistory);
 
         await chrome.storage.local.set({

@@ -170,6 +170,10 @@
                                         <span class="summary-label">Result</span>
                                         <span class="summary-value" id="analysisResultLabel">No result selected</span>
                                     </div>
+                                    <div class="summary-metric">
+                                        <span class="summary-label">Model</span>
+                                        <span class="summary-value" id="analysisModelLabel">Awaiting data</span>
+                                    </div>
                                     <div class="summary-block">
                                         <span class="summary-label">Summary</span>
                                         <p id="analysisExplanation">Choose a result to view its explanation.</p>
@@ -204,7 +208,6 @@
                 <div class="page" id="history-page" style="display: none;">
                     <section class="results-section">
                         <div class="section-heading section-heading-spread">
-                            <h3>Detection History</h3>
                             <div class="history-toolbar">
                                 <label class="history-search">
                                     <input type="search" id="historySearchInput" placeholder="Hinted search text">
@@ -231,10 +234,6 @@
 
                 <div class="page" id="analytics-page" style="display: none;">
                     <section class="analytics-shell">
-                        <div class="section-heading">
-                            <h3>Analytics</h3>
-                        </div>
-
                         <section class="analytics-section">
                             <h4>Performance</h4>
                             <div class="analytics-metrics">
@@ -283,9 +282,6 @@
                 <div class="page" id="upload-page" style="display: none;">
                     <section class="upload-section">
                         <div class="upload-container">
-                            <div class="section-heading">
-                                <h3>Upload Media</h3>
-                            </div>
                             <div class="upload-area-large" id="uploadAreaLarge">
                                 <div class="upload-icon">📁</div>
                                 <h2>Upload media for analysis</h2>
@@ -300,7 +296,6 @@
                 <div class="page" id="reanalyse-page" style="display: none;">
                     <section class="reanalyse-section">
                         <div class="section-heading section-heading-spread">
-                            <h3>Re-analyse</h3>
                             <button class="btn btn-primary" id="reanalyseLatestBtn" type="button">Re-analyse Latest</button>
                         </div>
                         <div class="reanalyse-list" id="reanalyseList"></div>
