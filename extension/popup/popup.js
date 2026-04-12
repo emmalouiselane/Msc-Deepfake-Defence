@@ -5,11 +5,11 @@ class DeepfakeDetector {
         this.maxRetries = 3;
         this.draggingSlider = false;
 
-        this.initializeElements();
+        this.initialiseElements();
         this.attachEventListeners();
     }
 
-    initializeElements() {
+    initialiseElements() {
         this.openNewTabBtn = document.getElementById('openNewTabBtn');
         this.moreSettingsBtn = document.getElementById('moreSettingsBtn');
         this.btnToggle = document.getElementById('btnToggle');
@@ -111,7 +111,7 @@ class DeepfakeDetector {
     }
 
     async handleSensitivity(value) {
-        const sensitivity = this.normalizeSensitivity(value);
+        const sensitivity = this.normaliseSensitivity(value);
         this.updateSlider(sensitivity);
         await chrome.storage.local.set({ sensitivity });
         await this.sendMessageWithRetry('updateSensitivity', { sensitivity });
@@ -133,11 +133,11 @@ class DeepfakeDetector {
 
         const rect = this.customSlider.getBoundingClientRect();
         const ratio = (event.clientX - rect.left) / rect.width;
-        const sensitivity = this.normalizeSensitivity(Math.round(ratio * 100));
+        const sensitivity = this.normaliseSensitivity(Math.round(ratio * 100));
         this.handleSensitivity(sensitivity);
     }
 
-    normalizeSensitivity(value) {
+    normaliseSensitivity(value) {
         const parsed = Number(value);
         if (!Number.isFinite(parsed)) {
             return 50;
@@ -193,7 +193,7 @@ class DeepfakeDetector {
         }
 
         if (changes.sensitivity) {
-            this.updateSlider(this.normalizeSensitivity(changes.sensitivity.newValue));
+            this.updateSlider(this.normaliseSensitivity(changes.sensitivity.newValue));
         }
 
         if (changes.detectionMode) {
@@ -222,7 +222,7 @@ class DeepfakeDetector {
             this.btnToggle.checked = Boolean(settings.detectionEnabled);
             this.manualMode.checked = true;
             this.automaticMode.checked = false;
-            this.updateSlider(this.normalizeSensitivity(settings.sensitivity));
+            this.updateSlider(this.normaliseSensitivity(settings.sensitivity));
             this.setSliderState(this.btnToggle.checked);
             this.setDetectionModeState(this.btnToggle.checked);
             this.updateStatus(this.btnToggle.checked);

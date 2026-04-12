@@ -42,10 +42,10 @@ class BackgroundService {
         this.selectedModelKey = 'mesonet';
         this.modelInfo = this.modelRegistry[this.selectedModelKey];
 
-        this.initializeEventListeners();
+        this.initialiseEventListeners();
     }
 
-    initializeEventListeners() {
+    initialiseEventListeners() {
         chrome.runtime.onInstalled.addListener((details) => {
             if (details.reason === 'install') {
                 this.handleInstall();
@@ -99,7 +99,7 @@ class BackgroundService {
                     return;
 
                 case 'analyzeMedia': {
-                    const result = await this.analyzeMedia(message.data || {}, sender);
+                    const result = await this.analyseMedia(message.data || {}, sender);
                     if (result.success === false) {
                         sendResponse({ success: false, error: result.error });
                     } else {
@@ -109,7 +109,7 @@ class BackgroundService {
                 }
 
                 case 'analyzeUploadedMedia': {
-                    const result = await this.analyzeUploadedMedia(message.data || {}, sender);
+                    const result = await this.analyseUploadedMedia(message.data || {}, sender);
                     if (result.success === false) {
                         sendResponse({ success: false, error: result.error });
                     } else {
@@ -119,7 +119,7 @@ class BackgroundService {
                 }
 
                 case 'reanalyzeStoredMedia': {
-                    const result = await this.reanalyzeStoredMedia(message.data || {}, sender);
+                    const result = await this.reanalyseStoredMedia(message.data || {}, sender);
                     if (result.success === false) {
                         sendResponse({ success: false, error: result.error });
                     } else {
@@ -137,7 +137,7 @@ class BackgroundService {
                 }
 
                 case 'updateSensitivity': {
-                    const sensitivity = this.normalizeSensitivity(message.sensitivity);
+                    const sensitivity = this.normaliseSensitivity(message.sensitivity);
                     await chrome.storage.local.set({ sensitivity });
                     await this.notifyActiveTab({ action: 'updateSensitivity', sensitivity });
                     sendResponse({ success: true, sensitivity });
@@ -259,7 +259,7 @@ class BackgroundService {
         }));
     }
 
-    normalizeModelKey(value) {
+    normaliseModelKey(value) {
         return Object.prototype.hasOwnProperty.call(this.modelRegistry, value) ? value : 'mesonet';
     }
 
@@ -268,7 +268,7 @@ class BackgroundService {
     }
 
     async setSelectedModel(value) {
-        const modelKey = this.normalizeModelKey(value);
+        const modelKey = this.normaliseModelKey(value);
         if (this.selectedModelKey !== modelKey) {
             this.selectedModelKey = modelKey;
             this.modelInfo = this.getSelectedModelInfo();
@@ -284,7 +284,7 @@ class BackgroundService {
                 modelVersion: this.modelInfo.version,
                 modelKey,
                 detectionEnabled: (await chrome.storage.local.get(['detectionEnabled'])).detectionEnabled ?? false,
-                sensitivity: this.normalizeSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity),
+                sensitivity: this.normaliseSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity),
                 detectionMode: (await chrome.storage.local.get(['detectionMode'])).detectionMode || 'manual'
             }
         });
@@ -299,14 +299,14 @@ class BackgroundService {
 
     getEmptyStatistics() {
         return {
-            totalAnalyzed: 0,
+            totalAnalysed: 0,
             highRiskCount: 0,
             lowRiskCount: 0,
             avgProcessingTime: 0
         };
     }
 
-    normalizeSensitivity(value) {
+    normaliseSensitivity(value) {
         const parsed = Number(value);
         if (!Number.isFinite(parsed)) {
             return 50;
@@ -325,7 +325,7 @@ class BackgroundService {
     }
 
     async ensureModelInitialized() {
-        const storedModelKey = this.normalizeModelKey((await chrome.storage.local.get(['modelKey'])).modelKey);
+        const storedModelKey = this.normaliseModelKey((await chrome.storage.local.get(['modelKey'])).modelKey);
         if (this.selectedModelKey !== storedModelKey) {
             this.selectedModelKey = storedModelKey;
             this.modelInfo = this.getSelectedModelInfo();
@@ -340,10 +340,10 @@ class BackgroundService {
             throw new Error('Service worker context is unavailable');
         }
 
-        await this.initializeONNXModel();
+        await this.initialiseONNXModel();
     }
 
-    async analyzeMedia(mediaData, sender) {
+    async analyseMedia(mediaData, sender) {
         let imageBitmap;
         let imageDebug = {};
 
@@ -356,8 +356,11 @@ class BackgroundService {
             this.validateMediaRequest(mediaData);
 
             const sensitivity = mediaData?.sensitivity !== undefined
-                ? this.normalizeSensitivity(mediaData.sensitivity)
-                : this.normalizeSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity);
+                ? this.normaliseSensitivity(mediaData.sensitivity)
+                : this.normaliseSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity);
+            const detailLevel = mediaData?.detailLevel !== undefined
+                ? this.normaliseSensitivity(mediaData.detailLevel)
+                : this.normaliseSensitivity((await chrome.storage.local.get(['detailLevel'])).detailLevel);
 
             await this.ensureModelInitialized();
 
@@ -377,9 +380,10 @@ class BackgroundService {
                 riskScore: result.riskScore,
                 confidence: result.confidence,
                 processingTime,
-                explanation: this.generateExplanation(result.riskScore, sensitivity),
+                explanation: this.generateExplanation(result.riskScore, sensitivity, detailLevel, result),
                 technicalDetails: {
                     ...result.technicalDetails,
+                    detailLevel,
                     inferenceTime: `${processingTime}ms`
                 },
                 debug: result.debug,
@@ -415,13 +419,16 @@ class BackgroundService {
         }
     }
 
-    async analyzeUploadedMedia(mediaData, sender) {
+    async analyseUploadedMedia(mediaData, sender) {
         let imageBitmap;
 
         try {
             const sensitivity = mediaData?.sensitivity !== undefined
-                ? this.normalizeSensitivity(mediaData.sensitivity)
-                : this.normalizeSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity);
+                ? this.normaliseSensitivity(mediaData.sensitivity)
+                : this.normaliseSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity);
+            const detailLevel = mediaData?.detailLevel !== undefined
+                ? this.normaliseSensitivity(mediaData.detailLevel)
+                : this.normaliseSensitivity((await chrome.storage.local.get(['detailLevel'])).detailLevel);
 
             await this.ensureModelInitialized();
 
@@ -448,9 +455,10 @@ class BackgroundService {
                 riskScore: result.riskScore,
                 confidence: result.confidence,
                 processingTime,
-                explanation: this.generateExplanation(result.riskScore, sensitivity),
+                explanation: this.generateExplanation(result.riskScore, sensitivity, detailLevel, result),
                 technicalDetails: {
                     ...result.technicalDetails,
+                    detailLevel,
                     inferenceTime: `${processingTime}ms`
                 },
                 debug: result.debug,
@@ -485,7 +493,7 @@ class BackgroundService {
         }
     }
 
-    async reanalyzeStoredMedia(mediaData, sender) {
+    async reanalyseStoredMedia(mediaData, sender) {
         let imageBitmap;
 
         try {
@@ -495,8 +503,11 @@ class BackgroundService {
             }
 
             const sensitivity = mediaData?.sensitivity !== undefined
-                ? this.normalizeSensitivity(mediaData.sensitivity)
-                : this.normalizeSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity);
+                ? this.normaliseSensitivity(mediaData.sensitivity)
+                : this.normaliseSensitivity((await chrome.storage.local.get(['sensitivity'])).sensitivity);
+            const detailLevel = mediaData?.detailLevel !== undefined
+                ? this.normaliseSensitivity(mediaData.detailLevel)
+                : this.normaliseSensitivity((await chrome.storage.local.get(['detailLevel'])).detailLevel);
 
             await this.ensureModelInitialized();
 
@@ -558,9 +569,10 @@ class BackgroundService {
                 riskScore: result.riskScore,
                 confidence: result.confidence,
                 processingTime,
-                explanation: this.generateExplanation(result.riskScore, sensitivity),
+                explanation: this.generateExplanation(result.riskScore, sensitivity, detailLevel, result),
                 technicalDetails: {
                     ...result.technicalDetails,
+                    detailLevel,
                     inferenceTime: `${processingTime}ms`
                 },
                 debug: this.createPersistableResult({ debug: result.debug }, {}, {}).debug,
@@ -672,7 +684,7 @@ class BackgroundService {
         const screenshotBitmap = await createImageBitmap(blob);
 
         try {
-            const crop = this.normalizeCaptureBounds(captureBounds, screenshotBitmap.width, screenshotBitmap.height);
+            const crop = this.normaliseCaptureBounds(captureBounds, screenshotBitmap.width, screenshotBitmap.height);
             const imageBitmap = await createImageBitmap(
                 screenshotBitmap,
                 crop.x,
@@ -689,7 +701,7 @@ class BackgroundService {
                         height: screenshotBitmap.height
                     },
                     requestedBounds: this.sanitizeBounds(captureBounds),
-                    normalizedBounds: crop
+                    normalisedBounds: crop
                 }
             };
         } finally {
@@ -699,7 +711,7 @@ class BackgroundService {
         }
     }
 
-    normalizeCaptureBounds(captureBounds, screenshotWidth, screenshotHeight) {
+    normaliseCaptureBounds(captureBounds, screenshotWidth, screenshotHeight) {
         const scale = Math.max(1, Number(captureBounds.devicePixelRatio) || 1);
         const x = Math.max(0, Math.floor((captureBounds.x || 0) * scale));
         const y = Math.max(0, Math.floor((captureBounds.y || 0) * scale));
@@ -737,7 +749,7 @@ class BackgroundService {
         this.ort = ort;
     }
 
-    async initializeONNXModel() {
+    async initialiseONNXModel() {
         await this.loadONNXRuntime();
 
         const modelConfig = this.getSelectedModelInfo();
@@ -825,7 +837,7 @@ class BackgroundService {
 
         if (mediaData?.imageBytes) {
             try {
-                const buffer = this.normalizeBinaryPayload(mediaData.imageBytes);
+                const buffer = this.normaliseBinaryPayload(mediaData.imageBytes);
                 const blob = new Blob([buffer], { type: mediaData?.mimeType || 'image/png' });
                 return await this.decodeImageBlob(blob);
             } catch (error) {
@@ -889,7 +901,7 @@ class BackgroundService {
         return new Blob([decoded], { type: mimeType });
     }
 
-    normalizeBinaryPayload(payload) {
+    normaliseBinaryPayload(payload) {
         if (payload instanceof ArrayBuffer) {
             return payload;
         }
@@ -1230,7 +1242,7 @@ class BackgroundService {
         return [this.createAnalysisRun(result)];
     }
 
-    normalizeComparableUrl(value) {
+    normaliseComparableUrl(value) {
         if (!value) {
             return '';
         }
@@ -1252,8 +1264,8 @@ class BackgroundService {
         }
 
         const incomingSourceType = mediaData?.sourceType || (/^https?:/i.test(mediaData?.src || '') ? 'web' : 'unknown');
-        const incomingMediaUrl = this.normalizeComparableUrl(mediaData?.src || '');
-        const incomingPageUrl = this.normalizeComparableUrl(sender?.tab?.url || '');
+        const incomingMediaUrl = this.normaliseComparableUrl(mediaData?.src || '');
+        const incomingPageUrl = this.normaliseComparableUrl(sender?.tab?.url || '');
         const incomingFilename = mediaData?.filename || '';
         const incomingSize = Number(mediaData?.size) || 0;
         const incomingType = mediaData?.originalType || mediaData?.mimeType || '';
@@ -1280,7 +1292,7 @@ class BackgroundService {
                 return true;
             }
 
-            const entryMediaUrl = this.normalizeComparableUrl(entry.mediaUrl || entry.debug?.capture?.mediaUrl || '');
+            const entryMediaUrl = this.normaliseComparableUrl(entry.mediaUrl || entry.debug?.capture?.mediaUrl || '');
             return Boolean(incomingMediaUrl && entryMediaUrl && incomingMediaUrl === entryMediaUrl);
         }) || null;
     }
@@ -1476,7 +1488,7 @@ class BackgroundService {
         );
 
         return {
-            totalAnalyzed: history.length,
+            totalAnalysed: history.length,
             highRiskCount: successfulResults.filter((entry) => entry.riskScore >= 66).length,
             lowRiskCount: successfulResults.filter((entry) => entry.riskScore < 33).length,
             avgProcessingTime: successfulResults.length
@@ -1504,7 +1516,7 @@ class BackgroundService {
     handleStorageChange(changes, namespace) {
         if (namespace === 'local') {
             if (changes.modelKey) {
-                const nextModelKey = this.normalizeModelKey(changes.modelKey.newValue);
+                const nextModelKey = this.normaliseModelKey(changes.modelKey.newValue);
                 if (this.selectedModelKey !== nextModelKey) {
                     this.selectedModelKey = nextModelKey;
                     this.modelInfo = this.getSelectedModelInfo();
@@ -1551,7 +1563,7 @@ class BackgroundService {
         return domains.includes(domain);
     }
 
-    generateExplanation(riskScore, sensitivity) {
+    generateExplanation(riskScore, sensitivity, detailLevel = 50, inferenceResult = null) {
         const bands = {
             low: [
                 'The model found mostly natural feature patterns and low synthetic signal.',
@@ -1579,7 +1591,34 @@ class BackgroundService {
 
         const explanations = bands[group];
         const index = sensitivity % explanations.length;
-        return explanations[index];
+        const baseExplanation = explanations[index];
+
+        if (detailLevel <= 20) {
+            return baseExplanation;
+        }
+
+        const confidence = Number(inferenceResult?.confidence);
+        const threshold = Number(inferenceResult?.threshold);
+        const rawOutput = Number(inferenceResult?.rawOutput);
+        const confidenceText = Number.isFinite(confidence)
+            ? ` Confidence is ${confidence.toFixed(1)}%.`
+            : '';
+        const thresholdText = Number.isFinite(threshold)
+            ? ` Decision threshold is ${threshold.toFixed(3)} at sensitivity ${sensitivity}%.`
+            : ` Sensitivity is set to ${sensitivity}%.`;
+
+        if (detailLevel <= 70) {
+            return `${baseExplanation}${confidenceText}${thresholdText}`;
+        }
+
+        const rawOutputText = Number.isFinite(rawOutput)
+            ? ` Raw model output is ${rawOutput.toFixed(6)}.`
+            : '';
+        const captureStrategy = inferenceResult?.technicalDetails?.captureStrategy
+            ? ` Capture strategy: ${inferenceResult.technicalDetails.captureStrategy}.`
+            : '';
+
+        return `${baseExplanation}${confidenceText}${thresholdText}${rawOutputText}${captureStrategy}`.trim();
     }
 
     calculateSensitivityThreshold(sensitivity) {
@@ -1595,17 +1634,17 @@ class BackgroundService {
             return Math.max(0, Math.min(100, 50 + (excess / maxExcess) * 50));
         }
 
-        const normalized = threshold <= 0 ? 1 : baseOutput / threshold;
-        return Math.max(0, Math.min(100, normalized * 50));
+        const normalised = threshold <= 0 ? 1 : baseOutput / threshold;
+        return Math.max(0, Math.min(100, normalised * 50));
     }
 
     calculateConfidence(baseOutput, threshold) {
         const distance = Math.abs(baseOutput - threshold);
         const maxDistance = Math.max(threshold, 1 - threshold, 0.0001);
-        const normalizedDistance = distance / maxDistance;
+        const normalisedDistance = distance / maxDistance;
 
         // Give clearer separation between borderline and decisive results.
-        const curvedDistance = Math.pow(normalizedDistance, 0.7);
+        const curvedDistance = Math.pow(normalisedDistance, 0.7);
         return Math.max(50, Math.min(99, 50 + curvedDistance * 49));
     }
 }

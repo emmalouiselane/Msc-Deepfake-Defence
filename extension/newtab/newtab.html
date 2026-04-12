@@ -352,14 +352,19 @@
 
                         <section class="settings-group">
                             <h4>Explanation Detail Level</h4>
-                            <div class="settings-slider-row">
-                                <span>Basic</span>
-                                <div class="custom-slider large-slider" id="detailSlider">
-                                    <div class="custom-slider-track" id="detailSliderTrack"></div>
-                                    <div class="custom-slider-thumb" id="detailSliderThumb"></div>
-                                    <input type="range" id="detailLevelSlider" min="0" max="100" value="100" class="hidden-slider">
-                                </div>
-                                <span>Detailed</span>
+                            <div class="mode-toggle detail-level-toggle">
+                                <label class="mode-option">
+                                    <input type="radio" name="detailLevelPreset" value="basic" id="detailBasic">
+                                    <span class="mode-label">Basic</span>
+                                </label>
+                                <label class="mode-option">
+                                    <input type="radio" name="detailLevelPreset" value="context" id="detailContext">
+                                    <span class="mode-label">Additional Context</span>
+                                </label>
+                                <label class="mode-option">
+                                    <input type="radio" name="detailLevelPreset" value="full" id="detailFull" checked>
+                                    <span class="mode-label">Full Detail</span>
+                                </label>
                             </div>
                         </section>
 
@@ -371,7 +376,7 @@
                                     <span class="mode-label">Manual</span>
                                 </label>
                                 <label class="mode-option">
-                                    <input type="radio" name="detectionMode" value="automatic" id="automaticMode">
+                                    <input type="radio" name="detectionMode" value="automatic" id="automaticMode" disabled>
                                     <span class="mode-label">Automatic</span>
                                 </label>
                             </div>

@@ -6,11 +6,12 @@ class ContentScript {
 
     constructor() {
         console.log('Deepfake Detection: Content script constructor called');
-        this.initializeElements();
+        this.initialiseElements();
         this.floatingButton = null;
         this.overlays = new Map(); // Store overlay elements
         this.isEnabled = false;
         this.sensitivity = 50;
+        this.detailLevel = 100;
         this.detectionMode = 'manual'; // 'manual' or 'automatic'
         
         // Load settings first, then attach listeners
@@ -19,7 +20,7 @@ class ContentScript {
         });
     }
 
-    initializeElements() {
+    initialiseElements() {
         // Check if we're on a page with media content
         this.mediaElements = this.findMediaElements();
         console.log(`Deepfake Detection: Found ${this.mediaElements.length} media elements`);
@@ -38,12 +39,13 @@ class ContentScript {
             const allStorage = await chrome.storage.local.get(null);
             console.log('Deepfake Detection: All storage contents:', allStorage);
             
-            const result = await chrome.storage.local.get(['detectionEnabled', 'sensitivity', 'detectionMode']);
+            const result = await chrome.storage.local.get(['detectionEnabled', 'sensitivity', 'detailLevel', 'detectionMode']);
             console.log('Deepfake Detection: Initial settings loaded', result);
             
             // Set initial state
             this.isEnabled = result.detectionEnabled !== undefined ? result.detectionEnabled : false;
             this.sensitivity = result.sensitivity !== undefined ? result.sensitivity : 50;
+            this.detailLevel = result.detailLevel !== undefined ? result.detailLevel : 100;
             this.detectionMode = result.detectionMode !== undefined ? result.detectionMode : 'manual';
             
             console.log(`Deepfake Detection: Final state - enabled: ${this.isEnabled}, mode: ${this.detectionMode}`);
@@ -67,6 +69,7 @@ class ContentScript {
             // Set defaults on error
             this.isEnabled = false;
             this.sensitivity = 50;
+            this.detailLevel = 100;
             this.detectionMode = 'manual';
             return Promise.resolve();
         }
@@ -325,7 +328,7 @@ class ContentScript {
                 `).join('')}
             </div>
             <div class="media-selector-actions">
-                <button class="analyze-btn" id="analyzeSelectedBtn" disabled>Analyze Selected</button>
+                <button class="analyze-btn" id="analyseSelectedBtn" disabled>Analyse Selected</button>
             </div>
         `;
         
@@ -334,7 +337,7 @@ class ContentScript {
         
         // Add event listeners
         const closeBtn = modal.querySelector('.media-selector-close');
-        const analyzeBtn = modal.querySelector('#analyzeSelectedBtn');
+        const analyseBtn = modal.querySelector('#analyseSelectedBtn');
         const mediaItems = modal.querySelectorAll('.media-item');
         
         closeBtn.addEventListener('click', () => {
@@ -351,16 +354,16 @@ class ContentScript {
             item.addEventListener('click', () => {
                 mediaItems.forEach(i => i.classList.remove('selected'));
                 item.classList.add('selected');
-                analyzeBtn.disabled = false;
+                analyseBtn.disabled = false;
             });
         });
         
-        analyzeBtn.addEventListener('click', () => {
+        analyseBtn.addEventListener('click', () => {
             const selectedItem = modal.querySelector('.media-item.selected');
             if (selectedItem) {
                 const index = parseInt(selectedItem.dataset.index);
                 const media = this.mediaElements[index];
-                this.analyzeMedia(media);
+                this.analyseMedia(media);
                 overlay.remove();
             }
         });
@@ -372,6 +375,7 @@ class ContentScript {
             type: media.type || 'image',
             element: media.element?.tagName?.toLowerCase() || 'img',
             sensitivity: this.sensitivity,
+            detailLevel: this.detailLevel,
             captureBounds: this.getCaptureBounds(media.element)
         };
     }
@@ -455,7 +459,7 @@ class ContentScript {
         `);
     }
 
-    async analyzeMedia(media) {
+    async analyseMedia(media) {
         try {
             // Check if Chrome APIs are available
             if (!this.isExtensionContextAvailable()) {
@@ -846,7 +850,7 @@ class ContentScript {
         });
     }
 
-    async initializeModelInference() {
+    async initialiseModelInference() {
         try {
             console.log('Deepfake Detection: Initializing ONNX model inference...');
             
@@ -880,7 +884,7 @@ class ContentScript {
         });
     }
 
-    async analyzeMediaWithModel(media) {
+    async analyseMediaWithModel(media) {
         if (!this.modelInference) {
             throw new Error('Model not initialized');
         }
@@ -980,8 +984,8 @@ class ContentScript {
         const maxDistance = Math.max(threshold, 1 - threshold);
         
         // Convert distance to confidence (70-95%)
-        const normalizedDistance = distance / maxDistance;
-        const confidence = 70 + normalizedDistance * 25;
+        const normalisedDistance = distance / maxDistance;
+        const confidence = 70 + normalisedDistance * 25;
         
         return Math.max(70, Math.min(95, confidence));
     }

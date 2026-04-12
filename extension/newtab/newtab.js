@@ -12,7 +12,7 @@ class FullAnalysisPlatform {
         this.mediaDbPromise = null;
         this.mediaRenderToken = 0;
         this.statistics = {
-            totalAnalyzed: 0,
+            totalAnalysed: 0,
             highRiskCount: 0,
             lowRiskCount: 0,
             avgProcessingTime: 0,
@@ -61,14 +61,14 @@ class FullAnalysisPlatform {
             }
         };
 
-        this.initializeElements();
+        this.initialiseElements();
         this.attachEventListeners();
         this.requestedAnalysisId = this.getRequestedAnalysisId();
         this.loadStoredData();
-        this.initializeNavigation();
+        this.initialiseNavigation();
     }
 
-    initializeElements() {
+    initialiseElements() {
         this.navItems = document.querySelectorAll('.nav-item');
         this.pages = document.querySelectorAll('.page');
         this.pageTitle = document.getElementById('pageTitle');
@@ -83,7 +83,7 @@ class FullAnalysisPlatform {
         this.fileInputLarge = document.getElementById('fileInputLarge');
         this.batchFileInput = document.getElementById('batchFileInput');
 
-        this.totalAnalyzed = document.getElementById('totalAnalyzed');
+        this.totalAnalysed = document.getElementById('totalAnalyzed');
         this.highRiskCount = document.getElementById('highRiskCount');
         this.avgRiskScore = document.getElementById('avgRiskScore');
         this.avgProcessingTime = document.getElementById('avgProcessingTime');
@@ -130,10 +130,7 @@ class FullAnalysisPlatform {
         this.customSlider = document.getElementById('customSlider');
         this.sliderTrack = document.getElementById('sliderTrack');
         this.sliderThumb = document.getElementById('sliderThumb');
-        this.detailLevelSlider = document.getElementById('detailLevelSlider');
-        this.detailSlider = document.getElementById('detailSlider');
-        this.detailSliderTrack = document.getElementById('detailSliderTrack');
-        this.detailSliderThumb = document.getElementById('detailSliderThumb');
+        this.detailLevelRadios = document.querySelectorAll('input[name="detailLevelPreset"]');
         this.manualMode = document.getElementById('manualMode');
         this.automaticMode = document.getElementById('automaticMode');
         this.modelSelect = document.getElementById('modelSelect');
@@ -169,8 +166,9 @@ class FullAnalysisPlatform {
 
         this.customSlider?.addEventListener('click', (event) => this.handleSliderPointer(event, 'sensitivity'));
         this.sensitivitySlider?.addEventListener('input', (event) => this.updateSensitivity(event.target.value));
-        this.detailSlider?.addEventListener('click', (event) => this.handleSliderPointer(event, 'detailLevel'));
-        this.detailLevelSlider?.addEventListener('input', (event) => this.updateDetailLevel(event.target.value));
+        this.detailLevelRadios?.forEach((radio) => {
+            radio.addEventListener('change', (event) => this.updateDetailLevel(event.target.value));
+        });
         this.btnToggle?.addEventListener('change', () => {
             this.settings.detectionEnabled = this.btnToggle.checked;
             this.updateDetectionToggleLabel();
@@ -186,7 +184,7 @@ class FullAnalysisPlatform {
         this.resetSettingsBtn?.addEventListener('click', () => this.applySettingsToControls());
     }
 
-    initializeNavigation() {
+    initialiseNavigation() {
         this.showPage(this.getRequestedPage());
     }
 
@@ -322,7 +320,7 @@ class FullAnalysisPlatform {
         this.updateStatus('processing', 'Processing files...');
 
         for (const file of validFiles) {
-            await this.analyzeFile(file);
+            await this.analyseFile(file);
         }
 
         this.updateStatistics();
@@ -332,13 +330,13 @@ class FullAnalysisPlatform {
         this.navigateToPage('history');
     }
 
-    async analyzeFile(file) {
+    async analyseFile(file) {
         try {
             const analysisResult = await this.runUploadAnalysis(file);
             this.analysisHistory.unshift(analysisResult);
         } catch (error) {
             console.error('Analysis error:', error);
-            this.showError(`Failed to analyze ${file.name}`);
+            this.showError(`Failed to analyse ${file.name}`);
         }
     }
 
@@ -419,7 +417,8 @@ class FullAnalysisPlatform {
         try {
             const reanalysisData = {
                 existingResult: target,
-                sensitivity: this.settings.sensitivity
+                sensitivity: this.settings.sensitivity,
+                detailLevel: this.settings.detailLevel
             };
 
             if (target.sourceType === 'upload') {
@@ -463,13 +462,13 @@ class FullAnalysisPlatform {
         const totalTime = this.analysisHistory.reduce((sum, result) => sum + (result.processingTime || 0), 0);
         const totalRisk = this.analysisHistory.reduce((sum, result) => sum + (result.riskScore || 0), 0);
 
-        this.statistics.totalAnalyzed = total;
+        this.statistics.totalAnalysed = total;
         this.statistics.highRiskCount = this.analysisHistory.filter((result) => result.riskScore >= 66).length;
         this.statistics.lowRiskCount = this.analysisHistory.filter((result) => result.riskScore < 33).length;
         this.statistics.avgProcessingTime = total > 0 ? Math.round(totalTime / total) : 0;
         this.statistics.avgRiskScore = total > 0 ? Math.round(totalRisk / total) : 0;
 
-        this.totalAnalyzed.textContent = String(this.statistics.totalAnalyzed);
+        this.totalAnalysed.textContent = String(this.statistics.totalAnalysed);
         this.highRiskCount.textContent = String(this.statistics.highRiskCount);
         this.avgRiskScore.textContent = `${this.statistics.avgRiskScore}%`;
         this.avgProcessingTime.textContent = `${this.statistics.avgProcessingTime}ms`;
@@ -549,14 +548,14 @@ class FullAnalysisPlatform {
     }
 
     getConfidenceGraphMarkup(confidence, options = {}) {
-        const normalized = this.normalizePercent(confidence);
+        const normalised = this.normalisePercent(confidence);
         const sizeClass = options.compact ? ' confidence-spark-compact' : '';
 
         return `
-            <div class="confidence-spark${sizeClass}" role="img" aria-label="Confidence ${normalized}%">
+            <div class="confidence-spark${sizeClass}" role="img" aria-label="Confidence ${normalised}%">
                 <div class="confidence-spark-head">
                     <span>Confidence</span>
-                    <strong>${normalized}%</strong>
+                    <strong>${normalised}%</strong>
                 </div>
             </div>
         `;
@@ -845,7 +844,7 @@ class FullAnalysisPlatform {
         }
 
         if (previewRecord?.previewDataUrl) {
-            const score = this.normalizePercent(result.riskScore);
+            const score = this.normalisePercent(result.riskScore);
             const mediaTag = previewRecord.mediaType === 'video'
                 ? `<img class="analysis-preview-image" src="${previewRecord.previewDataUrl}" alt="Stored video preview">`
                 : `<img class="analysis-preview-image" src="${previewRecord.previewDataUrl}" alt="Stored media preview">`;
@@ -867,7 +866,7 @@ class FullAnalysisPlatform {
             return;
         }
 
-        const score = this.normalizePercent(result.riskScore);
+        const score = this.normalisePercent(result.riskScore);
         this.analysisCanvas.innerHTML = `
             <div class="analysis-media-card risk-${riskLevel.class}">
                 <div class="analysis-file-badge">${result.filename || result.source || 'Media item'}</div>
@@ -955,32 +954,26 @@ class FullAnalysisPlatform {
     }
 
     updateSensitivity(value) {
-        this.settings.sensitivity = this.normalizePercent(value);
+        this.settings.sensitivity = this.normalisePercent(value);
         this.updateSliderVisual(this.sensitivitySlider, this.sliderTrack, this.sliderThumb, this.settings.sensitivity);
     }
 
     updateDetailLevel(value) {
-        this.settings.detailLevel = this.normalizePercent(value);
-        this.updateSliderVisual(this.detailLevelSlider, this.detailSliderTrack, this.detailSliderThumb, this.settings.detailLevel);
+        this.settings.detailLevel = this.normaliseDetailLevel(value);
     }
 
     handleSliderPointer(event, sliderType) {
-        const slider = sliderType === 'detailLevel' ? this.detailSlider : this.customSlider;
-        const input = sliderType === 'detailLevel' ? this.detailLevelSlider : this.sensitivitySlider;
+        const slider = this.customSlider;
+        const input = this.sensitivitySlider;
         if (!slider || !input) {
             return;
         }
 
         const rect = slider.getBoundingClientRect();
         const ratio = (event.clientX - rect.left) / rect.width;
-        const nextValue = this.normalizePercent(Math.round(ratio * 100));
+        const nextValue = this.normalisePercent(Math.round(ratio * 100));
         input.value = String(nextValue);
-
-        if (sliderType === 'detailLevel') {
-            this.updateDetailLevel(nextValue);
-        } else {
-            this.updateSensitivity(nextValue);
-        }
+        this.updateSensitivity(nextValue);
     }
 
     updateSliderVisual(input, track, thumb, value) {
@@ -994,7 +987,42 @@ class FullAnalysisPlatform {
     }
 
     updateDetectionMode() {
-        this.settings.detectionMode = this.automaticMode.checked ? 'automatic' : 'manual';
+        this.settings.detectionMode = 'manual';
+        if (this.manualMode) {
+            this.manualMode.checked = true;
+        }
+        if (this.automaticMode) {
+            this.automaticMode.checked = false;
+        }
+    }
+
+    normaliseDetailLevel(value) {
+        if (value === 'basic') {
+            return 10;
+        }
+
+        if (value === 'context') {
+            return 50;
+        }
+
+        if (value === 'full') {
+            return 100;
+        }
+
+        return this.normalisePercent(value);
+    }
+
+    getDetailPreset(detailLevel = 100) {
+        const normalised = this.normalisePercent(detailLevel);
+        if (normalised <= 20) {
+            return 'basic';
+        }
+
+        if (normalised <= 70) {
+            return 'context';
+        }
+
+        return 'full';
     }
 
     updateDetectionToggleLabel() {
@@ -1032,9 +1060,13 @@ class FullAnalysisPlatform {
         this.updateDetectionToggleLabel();
         this.updateDetectorAvailabilityStatus();
         this.updateSliderVisual(this.sensitivitySlider, this.sliderTrack, this.sliderThumb, this.settings.sensitivity);
-        this.updateSliderVisual(this.detailLevelSlider, this.detailSliderTrack, this.detailSliderThumb, this.settings.detailLevel);
-        this.manualMode.checked = this.settings.detectionMode !== 'automatic';
-        this.automaticMode.checked = this.settings.detectionMode === 'automatic';
+        const detailPreset = this.getDetailPreset(this.settings.detailLevel);
+        this.detailLevelRadios?.forEach((radio) => {
+            radio.checked = radio.value === detailPreset;
+        });
+        this.manualMode.checked = true;
+        this.automaticMode.checked = false;
+        this.automaticMode.disabled = true;
         this.modelSelect.value = this.settings.modelKey;
         this.anonymousAnalytics.checked = this.settings.anonymousAnalytics;
         this.updateModelSelection(this.settings.modelKey);
@@ -1111,7 +1143,7 @@ class FullAnalysisPlatform {
                 this.settings = {
                     detectionEnabled: Boolean(result.detectionEnabled),
                     sensitivity: typeof result.sensitivity === 'number' ? result.sensitivity : 50,
-                    detectionMode: result.detectionMode === 'automatic' ? 'automatic' : 'manual',
+                    detectionMode: 'manual',
                     modelKey: result.modelKey === 'lightweight' ? 'lightweight' : 'mesonet',
                     detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 100,
                     anonymousAnalytics: typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : true
@@ -1163,7 +1195,7 @@ class FullAnalysisPlatform {
         });
     }
 
-    normalizePercent(value) {
+    normalisePercent(value) {
         const parsed = Number(value);
         if (!Number.isFinite(parsed)) {
             return 50;
@@ -1261,6 +1293,7 @@ class FullAnalysisPlatform {
                 mimeType: file.type,
                 size: file.size,
                 sensitivity: this.settings.sensitivity,
+                detailLevel: this.settings.detailLevel,
                 imageBytes: new Uint8Array(imageBuffer),
                 imageDataUrl
             };
@@ -1279,6 +1312,7 @@ class FullAnalysisPlatform {
                 originalType: file.type,
                 size: file.size,
                 sensitivity: this.settings.sensitivity,
+                detailLevel: this.settings.detailLevel,
                 imageDataUrl
             };
         }

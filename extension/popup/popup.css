@@ -178,7 +178,12 @@ input:checked + .slider::before {
 
 .mode-toggle {
   display: flex;
-  gap: 8px;
+}
+.mode-toggle :first-child {
+  border-radius: 12px 0 0 12px;
+}
+.mode-toggle :last-child {
+  border-radius: 0 12px 12px 0;
 }
 
 .mode-option {

@@ -1147,7 +1147,16 @@ input:checked + .slider::before {
 
 .mode-toggle {
   display: flex;
-  gap: 10px;
+}
+.mode-toggle :first-child {
+  border-radius: 12px 0 0 12px;
+}
+.mode-toggle :last-child {
+  border-radius: 0 12px 12px 0;
+}
+
+.detail-level-toggle {
+  flex-wrap: wrap;
 }
 
 .mode-option {
@@ -1157,7 +1166,6 @@ input:checked + .slider::before {
   padding: 10px 16px;
   background: rgba(19, 33, 24, 0.92);
   border: 1px solid #253b2f;
-  border-radius: 12px;
   cursor: pointer;
 }
 .mode-option input {
@@ -1166,6 +1174,10 @@ input:checked + .slider::before {
 .mode-option:has(input:checked) {
   border-color: rgba(31, 138, 70, 0.35);
   background: rgba(26, 58, 40, 0.84);
+}
+.mode-option:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .model-select {
@@ -1178,7 +1190,7 @@ input:checked + .slider::before {
 }
 
 .model-help {
-  margin: 0;
+  margin: 5px 0 0 0;
   color: #94b19f;
 }
 

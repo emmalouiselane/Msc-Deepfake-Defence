@@ -1142,7 +1142,17 @@ input:checked + .slider {
 
 .mode-toggle {
   display: flex;
-  gap: 10px;
+
+  :first-child {
+    border-radius: 12px 0 0 12px;
+  }
+  :last-child {
+    border-radius: 0 12px 12px 0;
+  }
+}
+
+.detail-level-toggle {
+  flex-wrap: wrap;
 }
 
 .mode-option {
@@ -1152,7 +1162,6 @@ input:checked + .slider {
   padding: 10px 16px;
   background: rgba($bg-surface-alt, 0.92);
   border: 1px solid $border-subtle;
-  border-radius: 12px;
   cursor: pointer;
 
   input {
@@ -1162,6 +1171,11 @@ input:checked + .slider {
   &:has(input:checked) {
     border-color: rgba($brand-primary, 0.35);
     background: rgba($surface-accent-tint, 0.84);
+  }
+
+  &:has(input:disabled) {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 }
 
@@ -1175,7 +1189,7 @@ input:checked + .slider {
 }
 
 .model-help {
-  margin: 0;
+  margin: 5px 0 0 0;
   color: $text-secondary;
 }
 
