@@ -1,3 +1,11 @@
+import { DashboardPage } from './components/dashboard-page.js';
+import { HistoryPage } from './components/history-page.js';
+import { MediaAnalysisPage } from './components/media-analysis-page.js';
+import { AnalyticsPage } from './components/analytics-page.js';
+import { UploadPage } from './components/upload-page.js';
+import { ReanalysePage } from './components/reanalyse-page.js';
+import { SettingsPage } from './components/settings-page.js';
+
 class FullAnalysisPlatform {
     static MEDIA_DB_NAME = 'deepfake-media-store';
 
@@ -59,6 +67,15 @@ class FullAnalysisPlatform {
                 title: 'Settings',
                 showAction: false
             }
+        };
+        this.pageComponents = {
+            dashboard: new DashboardPage(this),
+            'media-analysis': new MediaAnalysisPage(this),
+            history: new HistoryPage(this),
+            analytics: new AnalyticsPage(this),
+            upload: new UploadPage(this),
+            reanalyse: new ReanalysePage(this),
+            settings: new SettingsPage(this)
         };
 
         this.initialiseElements();
@@ -237,7 +254,20 @@ class FullAnalysisPlatform {
 
         this.currentPage = pageName;
         this.updatePageHeader(pageName);
-        this.renderAll();
+        this.renderPage(pageName);
+    }
+
+    renderPage(pageName) {
+        const component = this.pageComponents?.[pageName];
+        if (!component || typeof component.render !== 'function') {
+            return;
+        }
+
+        component.render();
+    }
+
+    renderCurrentPage() {
+        this.renderPage(this.currentPage || 'dashboard');
     }
 
     updatePageUrl(pageName) {
@@ -479,44 +509,11 @@ class FullAnalysisPlatform {
     }
 
     renderAll() {
-        this.renderDashboard();
-        this.renderHistory();
-        this.renderMediaAnalysis();
-        this.renderAnalytics();
-        this.renderReanalyse();
-        this.applySettingsToControls();
+        this.renderCurrentPage();
     }
 
     renderDashboard() {
-        const recent = this.analysisHistory.slice(0, 12);
-        const flagRateSeries = this.getFlagRateSeries(recent);
-        const confidenceDistributionSeries = this.getConfidenceDistributionSeries(recent);
-        this.renderRecentActivity();
-        this.renderMiniChart(
-            this.flagRateChart,
-            flagRateSeries.length > 0
-                ? flagRateSeries
-                : recent.map((item) => ((Number(item.riskScore) || 0) >= 66 ? 100 : 0)),
-            'wave',
-            {
-                emptyMessage: 'No analysis history yet.',
-                valueLabelPrefix: 'Running flag rate'
-            }
-        );
-        this.renderMiniChart(
-            this.confidenceChart,
-            confidenceDistributionSeries.length > 0
-                ? confidenceDistributionSeries
-                : recent.map((item) => this.normalisePercent(item.confidence)),
-            'bars',
-            {
-                emptyMessage: 'No analysis history yet.',
-                segmentLabels: ['Low confidence', 'Medium confidence', 'High confidence'],
-                valueLabelPrefix: 'Confidence share'
-            }
-        );
-        this.renderChartInsights(recent, flagRateSeries, confidenceDistributionSeries);
-        this.renderRiskBreakdown();
+        this.pageComponents.dashboard.render();
     }
 
     renderChartInsights(recentItems, flagRateSeries, confidenceDistributionSeries) {
@@ -820,80 +817,11 @@ class FullAnalysisPlatform {
     }
 
     getFilteredHistory() {
-        const search = this.historySearchInput?.value.trim().toLowerCase() || '';
-        const filter = this.historyFilterSelect?.value || 'all';
-        const sort = this.historySortSelect?.value || 'newest';
-
-        let items = [...this.analysisHistory];
-
-        if (search) {
-            items = items.filter((item) =>
-                [item.filename, item.source, item.explanation]
-                    .filter(Boolean)
-                    .some((value) => value.toLowerCase().includes(search))
-            );
-        }
-
-        if (filter !== 'all') {
-            items = items.filter((item) => {
-                const riskLevel = this.getRiskLevel(item.riskScore).class;
-                return riskLevel === filter;
-            });
-        }
-
-        items.sort((left, right) => {
-            if (sort === 'highest-risk') {
-                return right.riskScore - left.riskScore;
-            }
-
-            if (sort === 'fastest') {
-                return left.processingTime - right.processingTime;
-            }
-
-            return new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime();
-        });
-
-        return items;
+        return this.pageComponents.history.getFilteredHistory();
     }
 
     renderHistory() {
-        if (!this.historyList) {
-            return;
-        }
-
-        const items = this.getFilteredHistory();
-        this.filteredHistory = items;
-        this.historyList.innerHTML = '';
-
-        if (items.length === 0) {
-            this.historyList.innerHTML = '<div class="empty-state-card">No matching history items yet.</div>';
-            return;
-        }
-
-        items.forEach((result) => {
-            const riskLevel = this.getRiskLevel(result.riskScore);
-            const sourceContext = this.getSourceContext(result);
-            const modelLabel = result.technicalDetails?.model || 'Unknown model';
-            const processingTime = Number(result.processingTime);
-            const speedLabel = Number.isFinite(processingTime) && processingTime >= 0
-                ? `${Math.round(processingTime)}ms`
-                : 'Unknown';
-            const row = document.createElement('article');
-            row.className = 'history-row';
-            row.innerHTML = `
-                <div class="history-row-main">
-                    <div class="history-meta">${this.formatDateTime(result.timestamp)}</div>
-                    <div class="history-score">${Math.round(result.riskScore)}% ${riskLevel.label}</div>
-                    <div class="history-source">${sourceContext.label}: ${sourceContext.value}</div>
-                    <div class="history-model">Model: ${modelLabel}</div>
-                    <div class="history-model">Speed: ${speedLabel}</div>
-                    ${this.getConfidenceGraphMarkup(result.confidence)}
-                </div>
-                <button class="history-more" type="button">More Info</button>
-            `;
-            row.querySelector('.history-more').addEventListener('click', () => this.viewAnalysisById(result.id));
-            this.historyList.appendChild(row);
-        });
+        this.pageComponents.history.render();
     }
 
     renderMediaAnalysis() {
