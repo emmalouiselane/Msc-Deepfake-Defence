@@ -22,6 +22,382 @@
   color: inherit;
 }
 
+#deepfake-detector-button.deepfake-extension-root {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  width: 56px;
+  height: 56px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(21, 109, 53, 0.8) 50%, rgba(31, 138, 70, 0) 100%);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+#deepfake-detector-button.deepfake-extension-root:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.deepfake-extension-root .detector-icon {
+  width: 24px;
+  height: 24px;
+  color: #f4fff7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deepfake-extension-root .detector-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.deepfake-extension-root .detector-tooltip {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  display: none;
+  margin-top: 8px;
+  padding: 8px 12px;
+  color: #f4fff7;
+  font-size: 12px;
+  white-space: nowrap;
+  background: #333;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.deepfake-extension-root .detector-tooltip::after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  right: 20px;
+  width: 0;
+  height: 0;
+  border-right: 4px solid transparent;
+  border-bottom: 4px solid #333;
+  border-left: 4px solid transparent;
+}
+
+.media-selector-overlay.deepfake-extension-root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10001;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.deepfake-extension-root .media-selector-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 90%;
+  max-width: 90vw;
+  min-height: 320px;
+  max-height: 90vh;
+  overflow: hidden;
+  padding: 24px;
+  color: #e7f4eb;
+  background: rgba(15, 27, 20, 0.96);
+  border: 1px solid #253b2f;
+  border-radius: 16px;
+  box-shadow: 0 18px 48px rgba(3, 13, 9, 0.55);
+}
+
+.deepfake-extension-root .media-selector-header {
+  display: flex;
+  margin-bottom: 20px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.deepfake-extension-root .media-selector-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #f4fff7;
+}
+
+.deepfake-extension-root .media-selector-close {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  color: #e7f4eb;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #253b2f;
+  border-radius: 50%;
+  background: rgba(15, 27, 20, 0.92);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.deepfake-extension-root .media-selector-close:hover {
+  background: #153022;
+  border-color: rgba(31, 138, 70, 0.55);
+  transform: translateY(-1px);
+}
+
+.deepfake-extension-root .media-grid {
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  margin-bottom: 16px;
+  padding-right: 4px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.deepfake-extension-root .media-item {
+  padding: 10px;
+  cursor: pointer;
+  text-align: center;
+  border: 1px solid #253b2f;
+  border-radius: 12px;
+  background: rgba(19, 33, 24, 0.9);
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.deepfake-extension-root .media-item:hover {
+  border-color: rgba(31, 138, 70, 0.55);
+  background: #153022;
+  box-shadow: 0 8px 18px rgba(3, 13, 9, 0.38);
+  transform: translateY(-1px);
+}
+
+.deepfake-extension-root .media-item.selected {
+  border-color: #1f8a46;
+  background: rgba(26, 58, 40, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(31, 138, 70, 0.26);
+}
+
+.deepfake-extension-root .media-thumbnail {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.deepfake-extension-root .media-info {
+  font-size: 12px;
+  color: #94b19f;
+  word-break: break-all;
+}
+
+.deepfake-extension-root .media-selector-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid rgba(31, 138, 70, 0.15);
+}
+
+.deepfake-extension-root .analyze-btn {
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #f4fff7;
+  background: #1f8a46;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.deepfake-extension-root .analyze-btn:hover:not(:disabled) {
+  background: #16a34a;
+  box-shadow: 0 6px 14px rgba(3, 13, 9, 0.35);
+  transform: translateY(-1px);
+}
+
+.deepfake-extension-root .analyze-btn:disabled {
+  cursor: not-allowed;
+  color: #d1dccf;
+  background: #5a7061;
+  border-color: #5a7061;
+  box-shadow: none;
+  transform: none;
+}
+
+.deepfake-container.deepfake-extension-root {
+  position: relative;
+  display: inline-block;
+}
+
+.deepfake-loading-overlay.deepfake-extension-root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.deepfake-error-overlay.deepfake-extension-root {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  color: #f4fff7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background: rgba(220, 53, 69, 0.9);
+  transition: opacity 0.3s ease;
+}
+
+.deepfake-container.deepfake-extension-root:hover .deepfake-error-overlay.deepfake-extension-root {
+  opacity: 1;
+}
+
+.deepfake-extension-root .deepfake-error-icon {
+  width: 24px;
+  height: 24px;
+  margin-bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deepfake-extension-root .deepfake-error-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.deepfake-extension-root .deepfake-error-text {
+  max-width: 80%;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.deepfake-analysis-toast.deepfake-extension-root {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  z-index: 10002;
+  width: min(420px, 100vw - 24px);
+  padding: 16px 18px;
+  color: #e7f4eb;
+  transform: translateX(-50%);
+  background: rgba(15, 27, 20, 0.96);
+  border: 1px solid #253b2f;
+  border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(3, 13, 9, 0.55);
+}
+
+.deepfake-analysis-toast.deepfake-extension-root.is-low {
+  border-color: rgba(74, 222, 128, 0.5);
+}
+
+.deepfake-analysis-toast.deepfake-extension-root.is-medium {
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+.deepfake-analysis-toast.deepfake-extension-root.is-high,
+.deepfake-analysis-toast.deepfake-extension-root.is-error {
+  border-color: rgba(248, 113, 113, 0.5);
+}
+
+.deepfake-extension-root .deepfake-analysis-toast-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.deepfake-extension-root .deepfake-analysis-toast-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f4fff7;
+}
+
+.deepfake-extension-root .deepfake-analysis-toast-content {
+  min-width: 0;
+}
+
+.deepfake-extension-root .deepfake-analysis-toast-title {
+  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #f4fff7;
+}
+
+.deepfake-extension-root .deepfake-analysis-toast-meta {
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #94b19f;
+}
+
+.deepfake-extension-root .deepfake-analysis-toast-copy {
+  font-size: 13px;
+  line-height: 1.4;
+  color: #e7f4eb;
+}
+
+.deepfake-extension-root .deepfake-analysis-toast-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  justify-content: flex-end;
+}
+
+.deepfake-extension-root .deepfake-notification-close,
+.deepfake-extension-root .deepfake-notification-more {
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #f4fff7;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.deepfake-extension-root .deepfake-notification-close {
+  background: #0f281b;
+  border-color: rgba(31, 138, 70, 0.4);
+}
+
+.deepfake-extension-root .deepfake-notification-close:hover {
+  background: #153022;
+  border-color: rgba(31, 138, 70, 0.55);
+  transform: translateY(-1px);
+}
+
+.deepfake-extension-root .deepfake-notification-more {
+  background: #1f8a46;
+}
+
+.deepfake-extension-root .deepfake-notification-more:hover {
+  background: #16a34a;
+  transform: translateY(-1px);
+}
+
 @keyframes deepfake-highlight {
   0% {
     box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);

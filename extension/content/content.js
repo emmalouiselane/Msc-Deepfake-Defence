@@ -186,16 +186,6 @@ class ContentScript {
             <div class="detector-icon">${this.getIconMarkup('search', 24)}</div>
             <div class="detector-tooltip">Analyze for Deepfake</div>
         `;
-        
-        // Add styles
-        this.floatingButton.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 10000;
-            cursor: pointer;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
 
         // Add to page
         document.body.appendChild(this.floatingButton);
@@ -215,9 +205,6 @@ class ContentScript {
             this.floatingButton.querySelector('.detector-tooltip').style.display = 'none';
         });
 
-        // Add internal styles
-        this.addFloatingButtonStyles();
-        
         console.log('Deepfake Detection: Floating button fully initialized');
     }
 
@@ -317,203 +304,6 @@ class ContentScript {
         }
     }
 
-    addFloatingButtonStyles() {
-        if (document.querySelector('#deepfake-ui-styles')) {
-            return;
-        }
-
-        const style = document.createElement('style');
-        style.id = 'deepfake-ui-styles';
-        style.textContent = `
-            #deepfake-detector-button.deepfake-extension-root {
-                background: linear-gradient(
-                    135deg,
-                    rgba(21, 109, 53, 0.8) 50%,
-                    rgba(31, 138, 70, 0) 100%
-                );
-                border-radius: 50%;
-                width: 56px;
-                height: 56px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                transition: all 0.3s ease;
-            }
-
-            #deepfake-detector-button.deepfake-extension-root:hover {
-                transform: scale(1.1);
-                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
-            }
-
-            .deepfake-extension-root .detector-icon {
-                color: white;
-                width: 24px;
-                height: 24px;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .deepfake-extension-root .detector-icon svg {
-                width: 24px;
-                height: 24px;
-            }
-
-            .deepfake-extension-root .detector-tooltip {
-                position: absolute;
-                top: 100%;
-                right: 0;
-                margin-top: 8px;
-                background: #333;
-                color: white;
-                padding: 8px 12px;
-                border-radius: 6px;
-                font-size: 12px;
-                white-space: nowrap;
-                display: none;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            }
-
-            .deepfake-extension-root .detector-tooltip::after {
-                content: '';
-                position: absolute;
-                top: -4px;
-                right: 20px;
-                width: 0;
-                height: 0;
-                border-left: 4px solid transparent;
-                border-right: 4px solid transparent;
-                border-bottom: 4px solid #333;
-            }
-
-            .media-selector-overlay.deepfake-extension-root {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.8);
-                z-index: 10001;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            }
-
-            .deepfake-extension-root .media-selector-modal {
-                background: white;
-                border-radius: 4px;
-                padding: 24px;
-                max-width: 600px;
-                width: 90%;
-                max-height: 80vh;
-                overflow-y: auto;
-            }
-
-            .deepfake-extension-root .media-selector-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                margin-bottom: 20px;
-            }
-
-            .deepfake-extension-root .media-selector-title {
-                font-size: 18px;
-                font-weight: 600;
-                color: #333;
-            }
-
-            .deepfake-extension-root .media-selector-close {
-                background: none;
-                border: none;
-                font-size: 24px;
-                cursor: pointer;
-                color: #666;
-                padding: 0;
-                width: 32px;
-                height: 32px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                border-radius: 50%;
-                transition: background 0.3s ease;
-            }
-
-            .deepfake-extension-root .media-selector-close:hover {
-                background: #f1f3f4;
-            }
-
-            .deepfake-extension-root .media-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                gap: 16px;
-                margin-bottom: 20px;
-            }
-
-            .deepfake-extension-root .media-item {
-                border: 2px solid #e1e4e8;
-                border-radius: 8px;
-                padding: 8px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                text-align: center;
-            }
-
-            .deepfake-extension-root .media-item:hover {
-                border-color: #667eea;
-                box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-            }
-
-            .deepfake-extension-root .media-item.selected {
-                border-color: #667eea;
-                background: #f8f9ff;
-            }
-
-            .deepfake-extension-root .media-thumbnail {
-                width: 100%;
-                height: 100px;
-                object-fit: cover;
-                border-radius: 4px;
-                margin-bottom: 8px;
-            }
-
-            .deepfake-extension-root .media-info {
-                font-size: 12px;
-                color: #666;
-                word-break: break-all;
-            }
-
-            .deepfake-extension-root .media-selector-actions {
-                display: flex;
-                gap: 12px;
-                justify-content: flex-end;
-            }
-
-            .deepfake-extension-root .analyze-btn {
-                background: #6a145f;
-                color: white;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 6px;
-                font-size: 14px;
-                font-weight: 500;
-                cursor: pointer;
-                transition: background 0.3s ease;
-            }
-
-            .deepfake-extension-root .analyze-btn:hover {
-                background: #4c104490;
-            }
-
-            .deepfake-extension-root .analyze-btn:disabled {
-                background: #e1e4e8;
-                color: #666;
-                cursor: not-allowed;
-            }
-        `;
-        document.head.appendChild(style);
-    }
-
     showMediaSelector() {
         // Create modal overlay
         const overlay = this.markAsExtensionRoot(document.createElement('div'));
@@ -531,7 +321,6 @@ class ContentScript {
                 ${this.mediaElements.map((media, index) => `
                     <div class="media-item" data-index="${index}">
                         <img src="${media.src}" class="media-thumbnail" alt="Media ${index + 1}">
-                        <div class="media-info">${this.getMediaDescription(media)}</div>
                     </div>
                 `).join('')}
             </div>
@@ -575,16 +364,6 @@ class ContentScript {
                 overlay.remove();
             }
         });
-    }
-
-    getMediaDescription(media) {
-        if (media.type === 'video-poster') {
-            return 'Video thumbnail';
-        }
-        
-        const url = media.src;
-        const filename = url.split('/').pop() || 'Unknown';
-        return filename.length > 20 ? filename.substring(0, 20) + '...' : filename;
     }
 
     buildAnalysisRequest(media) {
@@ -726,58 +505,73 @@ class ContentScript {
         this.showError('Extension updated. Refresh this page to reconnect the deepfake detector.');
     }
 
+    async openAnalysisDetails(analysisId) {
+        try {
+            if (!this.isExtensionContextAvailable()) {
+                this.handleInvalidatedContext();
+                return;
+            }
+
+            const response = await chrome.runtime.sendMessage({
+                action: 'openAnalysisPage',
+                analysisId
+            });
+
+            if (!response?.success) {
+                throw new Error(response?.error?.message || 'Failed to open analysis page');
+            }
+        } catch (error) {
+            console.error('Deepfake Detection: Failed to open media analysis page.', error);
+        }
+    }
+
     showAnalysisResult(result) {
         // Create result notification
         const notification = this.markAsExtensionRoot(document.createElement('div'));
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            border-radius: 8px;
-            padding: 16px 24px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            z-index: 10002;
-            max-width: 400px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
         
         // Handle both success and error cases
         const isError = !result || result.success === false;
         const riskScore = isError ? 0 : (result.riskScore || 0);
         const confidence = isError ? 0 : (result.confidence || 0);
+        const canOpenDetails = !isError && Boolean(result?.id);
         
         const riskLevel = this.getRiskLevel(riskScore);
+        notification.className = `${ContentScript.ROOT_CLASS} deepfake-analysis-toast ${isError ? 'is-error' : `is-${riskLevel.class}`}`;
         
         notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <div style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;">${isError ? this.getIconMarkup('alertTriangle', 24) : riskLevel.iconMarkup}</div>
-                <div>
-                    <div style="font-weight: 600; color: ${isError ? '#dc3545' : riskLevel.color}; margin-bottom: 4px;">
+            <div class="deepfake-analysis-toast-body">
+                <div class="deepfake-analysis-toast-icon">${isError ? this.getIconMarkup('alertTriangle', 24) : riskLevel.iconMarkup}</div>
+                <div class="deepfake-analysis-toast-content">
+                    <div class="deepfake-analysis-toast-title">
                         ${isError ? 'Analysis Failed' : riskLevel.label}
                     </div>
-                    <div style="font-size: 12px; color: #666; margin-bottom: 4px;">
+                    <div class="deepfake-analysis-toast-meta">
                         ${isError ? (result.error?.userMessage || 'An error occurred during analysis') : `Confidence: ${confidence.toFixed(1)}%`}
                     </div>
                     ${!isError ? `
-                    <div style="font-size: 14px; color: #333; line-height: 1.4;">
+                    <div class="deepfake-analysis-toast-copy">
                         ${result.explanation || 'Analysis completed successfully.'}
                     </div>
                     ` : ''}
                 </div>
             </div>
-            <div style="margin-top: 12px; text-align: right;">
-                <button class="deepfake-notification-close" style="background: #6a145f; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">
-                    Close
-                </button>
+            <div class="deepfake-analysis-toast-actions">
+                ${canOpenDetails ? '<button class="deepfake-notification-more" type="button">More Information</button>' : ''}
+                <button class="deepfake-notification-close" type="button">Close</button>
             </div>
         `;
         
         document.body.appendChild(notification);
         const closeButton = notification.querySelector('.deepfake-notification-close');
+        const moreInfoButton = notification.querySelector('.deepfake-notification-more');
         if (closeButton) {
             closeButton.addEventListener('click', () => {
+                notification.remove();
+            });
+        }
+        if (moreInfoButton) {
+            moreInfoButton.addEventListener('click', async () => {
+                this.openAnalysisDetails(result.id);
                 notification.remove();
             });
         }
@@ -1010,26 +804,9 @@ class ContentScript {
             <div class="deepfake-loading-text">Analyzing...</div>
         `;
         
-        // Style the loading overlay
-        container.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
-        
         // Wrap element and add overlay
         const wrapper = this.markAsExtensionRoot(document.createElement('div'));
         wrapper.className = `${ContentScript.ROOT_CLASS} deepfake-container`;
-        wrapper.style.position = 'relative';
-        wrapper.style.display = 'inline-block';
         
         element.parentNode.insertBefore(wrapper, element);
         wrapper.appendChild(element);
@@ -1046,65 +823,11 @@ class ContentScript {
             <div class="deepfake-error-text">${errorMessage}</div>
         `;
         
-        // Style the error overlay
-        errorContainer.style.cssText = `
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(220, 53, 69, 0.9);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
-        
-        // Add error overlay styles
-        if (!document.querySelector('#deepfake-error-styles')) {
-            const style = document.createElement('style');
-            style.id = 'deepfake-error-styles';
-            style.textContent = `
-                .deepfake-error-overlay.deepfake-extension-root {
-                    opacity: 0;
-                    transition: opacity 0.3s ease;
-                }
-                .deepfake-container.deepfake-extension-root:hover .deepfake-error-overlay.deepfake-extension-root {
-                    opacity: 1;
-                }
-                .deepfake-extension-root .deepfake-error-icon {
-                    margin-bottom: 8px;
-                    width: 24px;
-                    height: 24px;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                .deepfake-extension-root .deepfake-error-icon svg {
-                    width: 24px;
-                    height: 24px;
-                }
-                .deepfake-extension-root .deepfake-error-text {
-                    font-size: 14px;
-                    font-weight: 600;
-                    text-align: center;
-                    max-width: 80%;
-                    line-height: 1.4;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-        
         // Find or create wrapper
         let parentContainer = element.parentNode;
         if (!parentContainer || !parentContainer.classList.contains('deepfake-container')) {
             const wrapper = this.markAsExtensionRoot(document.createElement('div'));
             wrapper.className = `${ContentScript.ROOT_CLASS} deepfake-container`;
-            wrapper.style.position = 'relative';
-            wrapper.style.display = 'inline-block';
             
             element.parentNode.insertBefore(wrapper, element);
             wrapper.appendChild(element);

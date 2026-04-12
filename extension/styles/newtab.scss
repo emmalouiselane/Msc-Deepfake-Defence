@@ -172,10 +172,6 @@ body {
   overflow: hidden;
 }
 
-.header {
-  padding: 16px 18px 0;
-}
-
 .header-shell {
   overflow: hidden;
   background: $surface-glass;
@@ -322,7 +318,7 @@ body {
 }
 
 .recent-activity-grid {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .activity-card {
@@ -336,17 +332,36 @@ body {
 }
 
 .activity-score {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
 }
 
-.activity-label {
+.activity-meta,
+.activity-model {
   color: $text-secondary;
+  font-size: 12px;
+}
+
+.activity-source {
   font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-model {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .activity-card .confidence-spark {
   margin-top: 2px;
+}
+
+.activity-actions {
+  margin-top: auto;
 }
 
 .activity-link {
@@ -374,8 +389,9 @@ body {
 }
 
 .recent-cta {
-  min-height: 100%;
-  padding: 18px;
+  grid-column: 1 / -1;
+  justify-self: stretch;
+  padding: 8px;
   color: $text-on-accent;
   font-weight: 700;
   cursor: pointer;
@@ -518,6 +534,7 @@ body {
   padding: 14px;
   background: rgba($bg-surface-alt, 0.88);
   border-radius: 16px;
+  padding-bottom: 34px;
 }
 
 .analysis-preview-image {
@@ -535,8 +552,7 @@ body {
   margin-top: 18px;
 }
 
-.placeholder-symbol,
-.analysis-score-ring {
+.placeholder-symbol {
   display: grid;
   place-items: center;
   width: 96px;
@@ -554,14 +570,49 @@ body {
   height: 34px;
 }
 
+.analysis-score {
+  position: relative;
+  z-index: 1;
+  font-size: 24px;
+  font-weight: 700;
+  color: $text-on-accent;
+}
+
 .analysis-score-ring {
-  span {
-    font-size: 24px;
+  --ring-progress: 0;
+  --ring-color: #{$brand-primary};
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background:
+    conic-gradient(var(--ring-color) calc(var(--ring-progress) * 1%), rgba($brand-primary, 0.14) 0);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 10px;
+    border-radius: 50%;
+    background: $surface-panel;
+    box-shadow: inset 0 0 0 1px rgba($brand-primary, 0.14);
+  }
+
+  &.risk-low {
+    --ring-color: #{$state-success};
+  }
+
+  &.risk-medium {
+    --ring-color: #{$state-warning};
+  }
+
+  &.risk-high {
+    --ring-color: #{$state-danger};
   }
 }
 
 .analysis-file-badge {
-  margin-bottom: 16px;
   padding: 8px 12px;
   border-radius: 999px;
   color: $text-secondary;

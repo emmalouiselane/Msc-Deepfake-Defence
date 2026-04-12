@@ -8,6 +8,7 @@ class FullAnalysisPlatform {
         this.filteredHistory = [];
         this.currentAnalysisIndex = 0;
         this.currentPage = 'dashboard';
+        this.requestedAnalysisId = null;
         this.mediaDbPromise = null;
         this.mediaRenderToken = 0;
         this.statistics = {
@@ -21,8 +22,8 @@ class FullAnalysisPlatform {
             detectionEnabled: false,
             sensitivity: 50,
             detectionMode: 'manual',
-            modelKey: 'lightweight',
-            detailLevel: 50,
+            modelKey: 'mesonet',
+            detailLevel: 100,
             anonymousAnalytics: true
         };
         this.pageHeaders = {
@@ -62,6 +63,7 @@ class FullAnalysisPlatform {
 
         this.initializeElements();
         this.attachEventListeners();
+        this.requestedAnalysisId = this.getRequestedAnalysisId();
         this.loadStoredData();
         this.initializeNavigation();
     }
@@ -197,6 +199,12 @@ class FullAnalysisPlatform {
         return validPages.has(requestedPage) ? requestedPage : 'dashboard';
     }
 
+    getRequestedAnalysisId() {
+        const params = new URLSearchParams(window.location.search);
+        const value = params.get('analysisId');
+        return value ? String(value) : null;
+    }
+
     handleNavigation(navItem) {
         const page = navItem.dataset.page;
         this.navigateToPage(page);
@@ -238,6 +246,23 @@ class FullAnalysisPlatform {
         } catch (error) {
             console.warn('Deepfake Detection: Could not update page URL.', error);
         }
+    }
+
+    applyRequestedAnalysisSelection() {
+        if (!this.requestedAnalysisId || this.analysisHistory.length === 0) {
+            return false;
+        }
+
+        const targetIndex = this.analysisHistory.findIndex(
+            (entry) => String(entry.id) === String(this.requestedAnalysisId)
+        );
+
+        if (targetIndex === -1) {
+            return false;
+        }
+
+        this.currentAnalysisIndex = targetIndex;
+        return true;
     }
 
     updatePageHeader(pageName) {
@@ -481,13 +506,19 @@ class FullAnalysisPlatform {
 
         recent.forEach((result) => {
             const riskLevel = this.getRiskLevel(result.riskScore);
+            const sourceContext = this.getSourceContext(result);
+            const modelLabel = result.technicalDetails?.model || 'Unknown model';
             const card = document.createElement('article');
             card.className = `activity-card activity-${riskLevel.class}`;
             card.innerHTML = `
-                <div class="activity-score">${Math.round(result.riskScore)}%</div>
-                <div class="activity-label">${riskLevel.label}</div>
+                <div class="activity-meta">${this.formatDateTime(result.timestamp)}</div>
+                <div class="activity-score">${Math.round(result.riskScore)}% ${riskLevel.label}</div>
+                <div class="activity-source">${sourceContext.value}</div>
+                <div class="activity-model">Model: ${modelLabel}</div>
                 ${this.getConfidenceGraphMarkup(result.confidence, { compact: true })}
-                <button class="activity-link" type="button">More Info</button>
+                <div class="activity-actions">
+                    <button class="activity-link" type="button">More Info</button>
+                </div>
             `;
             card.querySelector('.activity-link').addEventListener('click', () => this.viewAnalysisById(result.id));
             this.recentActivityGrid.appendChild(card);
@@ -814,6 +845,7 @@ class FullAnalysisPlatform {
         }
 
         if (previewRecord?.previewDataUrl) {
+            const score = this.normalizePercent(result.riskScore);
             const mediaTag = previewRecord.mediaType === 'video'
                 ? `<img class="analysis-preview-image" src="${previewRecord.previewDataUrl}" alt="Stored video preview">`
                 : `<img class="analysis-preview-image" src="${previewRecord.previewDataUrl}" alt="Stored media preview">`;
@@ -825,9 +857,9 @@ class FullAnalysisPlatform {
                         ${mediaTag}
                     </div>
                     <div class="analysis-preview-footer">
-                        <div class="analysis-score-ring">
-                            <span>${Math.round(result.riskScore)}%</span>
-                        </div>
+                        <span class="analysis-score">${score}%</span>
+                        <div class="analysis-score-ring risk-${riskLevel.class}" style="--ring-progress: ${score};" role="img" aria-label="Risk score ${score}%"></div>
+                        
                         <div class="analysis-caption">${riskLevel.label} signal with ${Math.round(result.confidence)}% confidence</div>
                     </div>
                 </div>
@@ -835,12 +867,14 @@ class FullAnalysisPlatform {
             return;
         }
 
+        const score = this.normalizePercent(result.riskScore);
         this.analysisCanvas.innerHTML = `
             <div class="analysis-media-card risk-${riskLevel.class}">
                 <div class="analysis-file-badge">${result.filename || result.source || 'Media item'}</div>
-                <div class="analysis-score-ring">
-                    <span>${Math.round(result.riskScore)}%</span>
-                </div>
+                
+                <span class="analysis-score">${score}%</span>
+                <div class="analysis-score-ring risk-${riskLevel.class}" style="--ring-progress: ${score};" role="img" aria-label="Risk score ${score}%"></div>
+
                 <div class="analysis-caption">${riskLevel.label} signal with ${Math.round(result.confidence)}% confidence</div>
             </div>
         `;
@@ -1078,12 +1112,12 @@ class FullAnalysisPlatform {
                     detectionEnabled: Boolean(result.detectionEnabled),
                     sensitivity: typeof result.sensitivity === 'number' ? result.sensitivity : 50,
                     detectionMode: result.detectionMode === 'automatic' ? 'automatic' : 'manual',
-                    modelKey: result.modelKey === 'mesonet' ? 'mesonet' : 'lightweight',
-                    detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 50,
-                    anonymousAnalytics: Boolean(result.anonymousAnalytics)
+                    modelKey: result.modelKey === 'lightweight' ? 'lightweight' : 'mesonet',
+                    detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 100,
+                    anonymousAnalytics: typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : true
                 };
 
-                if (this.analysisHistory.length > 0) {
+                if (this.analysisHistory.length > 0 && !this.applyRequestedAnalysisSelection()) {
                     this.currentAnalysisIndex = 0;
                 }
                 this.updateStatistics();

@@ -39,7 +39,7 @@ class BackgroundService {
                 externalDataPath: 'models/mesonet_model.onnx.data'
             }
         };
-        this.selectedModelKey = 'lightweight';
+        this.selectedModelKey = 'mesonet';
         this.modelInfo = this.modelRegistry[this.selectedModelKey];
 
         this.initializeEventListeners();
@@ -77,7 +77,9 @@ class BackgroundService {
                 modelKey: defaults.modelKey,
                 detectionEnabled: defaults.detectionEnabled,
                 sensitivity: defaults.sensitivity,
-                detectionMode: defaults.detectionMode
+                detectionMode: defaults.detectionMode,
+                detailLevel: defaults.detailLevel,
+                anonymousAnalytics: defaults.anonymousAnalytics
             },
             statistics: this.getEmptyStatistics(),
             analysisHistory: [],
@@ -160,6 +162,18 @@ class BackgroundService {
                     return;
                 }
 
+                case 'openAnalysisPage': {
+                    const params = new URLSearchParams({ page: 'media-analysis' });
+                    if (message.analysisId !== undefined && message.analysisId !== null && message.analysisId !== '') {
+                        params.set('analysisId', String(message.analysisId));
+                    }
+
+                    const url = chrome.runtime.getURL(`newtab/newtab.html?${params.toString()}`);
+                    await chrome.tabs.create({ url });
+                    sendResponse({ success: true, url });
+                    return;
+                }
+
                 case 'getModelInfo':
                     sendResponse({
                         success: true,
@@ -228,7 +242,9 @@ class BackgroundService {
             detectionEnabled: false,
             sensitivity: 50,
             detectionMode: 'manual',
-            modelKey: 'lightweight'
+            modelKey: 'mesonet',
+            detailLevel: 100,
+            anonymousAnalytics: true
         };
     }
 
@@ -244,11 +260,11 @@ class BackgroundService {
     }
 
     normalizeModelKey(value) {
-        return Object.prototype.hasOwnProperty.call(this.modelRegistry, value) ? value : 'lightweight';
+        return Object.prototype.hasOwnProperty.call(this.modelRegistry, value) ? value : 'mesonet';
     }
 
     getSelectedModelInfo() {
-        return this.modelRegistry[this.selectedModelKey] || this.modelRegistry.lightweight;
+        return this.modelRegistry[this.selectedModelKey] || this.modelRegistry.mesonet;
     }
 
     async setSelectedModel(value) {
@@ -351,7 +367,9 @@ class BackgroundService {
             const startedAt = Date.now();
             const result = await this.runDirectInference(imageBitmap, sensitivity, imageDebug);
             const processingTime = Date.now() - startedAt;
-            const analysisId = crypto.randomUUID();
+            const existingResult = await this.findExistingResultForMedia(mediaData, sender);
+            const analysisId = existingResult?.id || crypto.randomUUID();
+            const mediaPreviewId = existingResult?.mediaPreviewId || analysisId;
             const previewDataUrl = await this.createDebugPreviewDataUrl(imageBitmap, 480, 320);
 
             const analysisResult = {
@@ -369,15 +387,18 @@ class BackgroundService {
             };
 
             await this.saveMediaPreview({
-                id: analysisId,
+                id: mediaPreviewId,
                 previewDataUrl,
                 mediaType: mediaData?.type || 'image',
                 mediaUrl: mediaData?.src || '',
                 pageUrl: sender?.tab?.url || '',
                 storedAt: analysisResult.timestamp
             });
-            await this.saveAnalysisResult(this.createPersistableResult(analysisResult, mediaData, sender));
-            return analysisResult;
+            const persistableResult = this.createPersistableResult(analysisResult, mediaData, sender);
+            persistableResult.mediaPreviewId = mediaPreviewId;
+            const mergedResult = this.mergeWithExistingResult(existingResult, persistableResult);
+            await this.persistMergedResult(existingResult, mergedResult);
+            return mergedResult;
         } catch (error) {
             console.error('Deepfake Detection: Model analysis failed:', {
                 name: error?.name,
@@ -412,7 +433,9 @@ class BackgroundService {
                 mediaKind: mediaData?.mediaKind || 'image-file'
             });
             const processingTime = Date.now() - startedAt;
-            const analysisId = crypto.randomUUID();
+            const existingResult = await this.findExistingResultForMedia(mediaData, sender);
+            const analysisId = existingResult?.id || crypto.randomUUID();
+            const mediaPreviewId = existingResult?.mediaPreviewId || analysisId;
             const previewDataUrl = await this.createDebugPreviewDataUrl(imageBitmap, 480, 320);
 
             const analysisResult = {
@@ -435,7 +458,7 @@ class BackgroundService {
             };
 
             await this.saveMediaPreview({
-                id: analysisId,
+                id: mediaPreviewId,
                 previewDataUrl,
                 mediaType: mediaData?.originalType?.startsWith('video/') ? 'video' : 'image',
                 fileName: mediaData?.filename || 'Uploaded media',
@@ -443,8 +466,10 @@ class BackgroundService {
             });
 
             const persistableResult = this.createPersistableResult(analysisResult, mediaData, sender);
-            await this.saveAnalysisResult(persistableResult);
-            return persistableResult;
+            persistableResult.mediaPreviewId = mediaPreviewId;
+            const mergedResult = this.mergeWithExistingResult(existingResult, persistableResult);
+            await this.persistMergedResult(existingResult, mergedResult);
+            return mergedResult;
         } catch (error) {
             console.error('Deepfake Detection: Uploaded media analysis failed:', {
                 name: error?.name,
@@ -1203,6 +1228,87 @@ class BackgroundService {
         }
 
         return [this.createAnalysisRun(result)];
+    }
+
+    normalizeComparableUrl(value) {
+        if (!value) {
+            return '';
+        }
+
+        try {
+            const url = new URL(value);
+            url.hash = '';
+            return url.toString();
+        } catch {
+            return String(value).trim();
+        }
+    }
+
+    async findExistingResultForMedia(mediaData = {}, sender = {}) {
+        const data = await chrome.storage.local.get(['analysisHistory']);
+        const history = Array.isArray(data.analysisHistory) ? data.analysisHistory : [];
+        if (!history.length) {
+            return null;
+        }
+
+        const incomingSourceType = mediaData?.sourceType || (/^https?:/i.test(mediaData?.src || '') ? 'web' : 'unknown');
+        const incomingMediaUrl = this.normalizeComparableUrl(mediaData?.src || '');
+        const incomingPageUrl = this.normalizeComparableUrl(sender?.tab?.url || '');
+        const incomingFilename = mediaData?.filename || '';
+        const incomingSize = Number(mediaData?.size) || 0;
+        const incomingType = mediaData?.originalType || mediaData?.mimeType || '';
+
+        return history.find((entry) => {
+            if (!entry || (entry.sourceType || 'unknown') !== incomingSourceType) {
+                return false;
+            }
+
+            if (incomingSourceType === 'upload' || incomingFilename) {
+                if (!incomingFilename || !entry.filename || entry.filename !== incomingFilename) {
+                    return false;
+                }
+
+                const entrySize = Number(entry.size) || 0;
+                if (incomingSize && entrySize && incomingSize !== entrySize) {
+                    return false;
+                }
+
+                if (incomingType && entry.originalType && incomingType !== entry.originalType) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            const entryMediaUrl = this.normalizeComparableUrl(entry.mediaUrl || entry.debug?.capture?.mediaUrl || '');
+            return Boolean(incomingMediaUrl && entryMediaUrl && incomingMediaUrl === entryMediaUrl);
+        }) || null;
+    }
+
+    mergeWithExistingResult(existingResult, nextResult) {
+        if (!existingResult) {
+            return nextResult;
+        }
+
+        return {
+            ...existingResult,
+            ...nextResult,
+            id: existingResult.id,
+            mediaPreviewId: existingResult.mediaPreviewId || nextResult.mediaPreviewId || existingResult.id,
+            analysisRuns: [
+                ...this.getAnalysisRuns(existingResult),
+                this.createAnalysisRun(nextResult)
+            ]
+        };
+    }
+
+    async persistMergedResult(existingResult, mergedResult) {
+        if (existingResult?.id) {
+            await this.updateAnalysisResult(existingResult.id, mergedResult);
+            return;
+        }
+
+        await this.saveAnalysisResult(mergedResult);
     }
 
     buildSourceMetadata(mediaData = {}, sender = {}) {
