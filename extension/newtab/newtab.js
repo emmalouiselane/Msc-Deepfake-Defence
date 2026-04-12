@@ -1215,6 +1215,10 @@ class FullAnalysisPlatform {
 
     async createUploadedMediaPayload(file) {
         if (file.type.startsWith('image/')) {
+            const [imageBuffer, imageDataUrl] = await Promise.all([
+                this.readFileAsArrayBuffer(file),
+                this.readFileAsDataUrl(file)
+            ]);
             return {
                 mediaKind: 'image-file',
                 sourceType: 'upload',
@@ -1223,7 +1227,8 @@ class FullAnalysisPlatform {
                 mimeType: file.type,
                 size: file.size,
                 sensitivity: this.settings.sensitivity,
-                imageBytes: await this.readFileAsArrayBuffer(file)
+                imageBytes: new Uint8Array(imageBuffer),
+                imageDataUrl
             };
         }
 

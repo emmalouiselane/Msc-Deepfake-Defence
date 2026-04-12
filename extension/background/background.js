@@ -796,21 +796,181 @@ class BackgroundService {
     }
 
     async loadUploadedImageBitmap(mediaData) {
+        let firstDecodeError = null;
+
         if (mediaData?.imageBytes) {
-            const buffer = mediaData.imageBytes instanceof ArrayBuffer
-                ? mediaData.imageBytes
-                : mediaData.imageBytes.buffer;
-            const blob = new Blob([buffer], { type: mediaData?.mimeType || 'image/png' });
-            return createImageBitmap(blob);
+            try {
+                const buffer = this.normalizeBinaryPayload(mediaData.imageBytes);
+                const blob = new Blob([buffer], { type: mediaData?.mimeType || 'image/png' });
+                return await this.decodeImageBlob(blob);
+            } catch (error) {
+                firstDecodeError = error;
+                console.warn('Deepfake Detection: Uploaded byte payload failed to decode, falling back to data URL when available.', {
+                    name: error?.name,
+                    message: error?.message,
+                    filename: mediaData?.filename
+                });
+            }
         }
 
         if (mediaData?.imageDataUrl) {
-            const response = await fetch(mediaData.imageDataUrl);
-            const blob = await response.blob();
-            return createImageBitmap(blob);
+            try {
+                const blob = this.dataUrlToBlob(mediaData.imageDataUrl);
+                return await this.decodeImageBlob(blob);
+            } catch (error) {
+                if (firstDecodeError) {
+                    throw new Error(
+                        `Unable to decode uploaded image from both byte payload and data URL. ` +
+                        `Bytes error: ${firstDecodeError.message}. Data URL error: ${error.message}.`
+                    );
+                }
+
+                throw error;
+            }
+        }
+
+        if (firstDecodeError) {
+            throw firstDecodeError;
         }
 
         throw new Error('No uploaded image payload was provided for analysis.');
+    }
+
+    dataUrlToBlob(dataUrl) {
+        if (typeof dataUrl !== 'string' || !dataUrl.startsWith('data:')) {
+            throw new Error('Invalid data URL payload.');
+        }
+
+        const commaIndex = dataUrl.indexOf(',');
+        if (commaIndex === -1) {
+            throw new Error('Malformed data URL payload.');
+        }
+
+        const header = dataUrl.slice(5, commaIndex);
+        const body = dataUrl.slice(commaIndex + 1);
+        const isBase64 = /;base64/i.test(header);
+        const mimeType = (header.split(';')[0] || 'application/octet-stream').trim() || 'application/octet-stream';
+
+        if (isBase64) {
+            const binary = atob(body);
+            const bytes = new Uint8Array(binary.length);
+            for (let index = 0; index < binary.length; index += 1) {
+                bytes[index] = binary.charCodeAt(index);
+            }
+            return new Blob([bytes], { type: mimeType });
+        }
+
+        const decoded = decodeURIComponent(body);
+        return new Blob([decoded], { type: mimeType });
+    }
+
+    normalizeBinaryPayload(payload) {
+        if (payload instanceof ArrayBuffer) {
+            return payload;
+        }
+
+        if (ArrayBuffer.isView(payload)) {
+            const view = payload;
+            if (view.byteOffset === 0 && view.byteLength === view.buffer.byteLength) {
+                return view.buffer;
+            }
+
+            return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+        }
+
+        if (Array.isArray(payload)) {
+            return Uint8Array.from(payload).buffer;
+        }
+
+        if (payload && typeof payload === 'object') {
+            if (payload.type === 'Buffer' && Array.isArray(payload.data)) {
+                return Uint8Array.from(payload.data).buffer;
+            }
+
+            if (Array.isArray(payload.data)) {
+                return Uint8Array.from(payload.data).buffer;
+            }
+
+            if (typeof payload.base64 === 'string') {
+                const binary = atob(payload.base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let index = 0; index < binary.length; index += 1) {
+                    bytes[index] = binary.charCodeAt(index);
+                }
+                return bytes.buffer;
+            }
+
+            if (typeof payload.byteLength === 'number' && Number.isFinite(payload.byteLength)) {
+                const byteLength = Math.max(0, Math.floor(payload.byteLength));
+                const bytes = new Uint8Array(byteLength);
+                let hasNumericData = false;
+
+                for (let index = 0; index < byteLength; index += 1) {
+                    const value = payload[index];
+                    if (typeof value === 'number' && Number.isFinite(value)) {
+                        bytes[index] = value & 0xff;
+                        hasNumericData = true;
+                    }
+                }
+
+                if (hasNumericData) {
+                    return bytes.buffer;
+                }
+            }
+
+            if (typeof payload.length === 'number' && Number.isFinite(payload.length)) {
+                const length = Math.max(0, Math.floor(payload.length));
+                const bytes = new Uint8Array(length);
+                let hasNumericData = false;
+
+                for (let index = 0; index < length; index += 1) {
+                    const value = payload[index];
+                    if (typeof value === 'number' && Number.isFinite(value)) {
+                        bytes[index] = value & 0xff;
+                        hasNumericData = true;
+                    }
+                }
+
+                if (hasNumericData) {
+                    return bytes.buffer;
+                }
+            }
+        }
+
+        throw new Error('Unsupported uploaded binary payload format.');
+    }
+
+    async decodeImageBlob(blob) {
+        try {
+            return await createImageBitmap(blob);
+        } catch (error) {
+            if (typeof ImageDecoder === 'undefined') {
+                throw error;
+            }
+
+            const buffer = await blob.arrayBuffer();
+            const decoder = new ImageDecoder({
+                data: buffer,
+                type: blob.type || 'image/png'
+            });
+
+            let frame;
+            try {
+                const { image } = await decoder.decode({ frameIndex: 0 });
+                frame = image;
+                const canvas = new OffscreenCanvas(frame.displayWidth || frame.codedWidth, frame.displayHeight || frame.codedHeight);
+                const context = canvas.getContext('2d');
+                if (!context) {
+                    throw error;
+                }
+
+                context.drawImage(frame, 0, 0);
+                return canvas.transferToImageBitmap();
+            } finally {
+                frame?.close?.();
+                decoder.close?.();
+            }
+        }
     }
 
     async runDirectInference(imageBitmap, sensitivity, imageDebug = {}) {
