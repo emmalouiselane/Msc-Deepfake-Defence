@@ -293,7 +293,6 @@ body {
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  background: rgba(31, 138, 70, 0.18);
   font-size: 22px;
 }
 
@@ -314,6 +313,15 @@ body {
 .upload-section,
 .reanalyse-section {
   margin-bottom: 28px;
+}
+.dashboard-section-grid-2,
+.analytics-section-grid-2,
+.settings-group-grid-2,
+.results-section-grid-2,
+.upload-section-grid-2,
+.reanalyse-section-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .section-heading,

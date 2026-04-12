@@ -25,21 +25,30 @@ export const analyticsPageMarkup = `
                 </div>
             </section>
 
-            <section class="analytics-section">
-                <h4>Confidence Distribution</h4>
-                <div class="distribution-list">
-                    <div class="distribution-row">
-                        <span>Low</span>
-                        <div class="distribution-bar"><div id="distLow"></div></div>
+            <section class="analytics-section-grid-2">
+                <div>
+                    <h4>Confidence Distribution</h4>
+                    <div class="distribution-list">
+                        <div class="distribution-row">
+                            <span>Low</span>
+                            <div class="distribution-bar"><div id="distLow"></div></div>
+                        </div>
+                        <div class="distribution-row">
+                            <span>Medium</span>
+                            <div class="distribution-bar"><div id="distMedium"></div></div>
+                        </div>
+                        <div class="distribution-row">
+                            <span>High</span>
+                            <div class="distribution-bar"><div id="distHigh"></div></div>
+                        </div>
                     </div>
-                    <div class="distribution-row">
-                        <span>Medium</span>
-                        <div class="distribution-bar"><div id="distMedium"></div></div>
-                    </div>
-                    <div class="distribution-row">
-                        <span>High</span>
-                        <div class="distribution-bar"><div id="distHigh"></div></div>
-                    </div>
+                </div>
+                <div>
+                    <h4>Confidence Trends - TBA</h4>
+                    <div class="confidence-trend-panel">
+                        <span class="trend-label">Confidence Score Over Time</span>
+                        <div class="trend-chart" id="confidenceTrendChart"></div>
+                    </div>                    
                 </div>
             </section>
 
