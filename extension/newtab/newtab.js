@@ -31,7 +31,7 @@ class FullAnalysisPlatform {
             sensitivity: 50,
             detectionMode: 'manual',
             modelKey: 'mesonet',
-            detailLevel: 100,
+            detailLevel: 50,
             anonymousAnalytics: true
         };
         this.pageHeaders = {
@@ -134,6 +134,9 @@ class FullAnalysisPlatform {
 
         this.analyticsAccuracy = document.getElementById('analyticsAccuracy');
         this.analyticsProcessing = document.getElementById('analyticsProcessing');
+        this.analyticsFlagRate = document.getElementById('analyticsFlagRate');
+        this.analyticsFlaggedCount = document.getElementById('analyticsFlaggedCount');
+        this.analyticsRiskBreakdown = document.getElementById('analyticsRiskBreakdown');
         this.trendChart = document.getElementById('trendChart');
         this.distLow = document.getElementById('distLow');
         this.distMedium = document.getElementById('distMedium');
@@ -956,10 +959,25 @@ class FullAnalysisPlatform {
         if (!this.analysisHistory.length) {
             this.analyticsAccuracy.textContent = '0%';
             this.analyticsProcessing.textContent = '0ms';
+            if (this.analyticsFlagRate) {
+                this.analyticsFlagRate.textContent = '0%';
+            }
+            if (this.analyticsFlaggedCount) {
+                this.analyticsFlaggedCount.textContent = '0';
+            }
+            if (this.analyticsRiskBreakdown) {
+                this.analyticsRiskBreakdown.innerHTML = '';
+            }
             this.trendChart.innerHTML = '<div class="analytics-empty-state">No analysis history yet.</div>';
-            this.distLow.style.width = '0%';
-            this.distMedium.style.width = '0%';
-            this.distHigh.style.width = '0%';
+            this.distLow.style.width = '5%';
+            this.distMedium.style.width = '5%';
+            this.distHigh.style.width = '5%';
+            this.distLow.removeAttribute('data-tooltip');
+            this.distMedium.removeAttribute('data-tooltip');
+            this.distHigh.removeAttribute('data-tooltip');
+            this.distLow.title = '';
+            this.distMedium.title = '';
+            this.distHigh.title = '';
             this.feedbackAgree.textContent = '0%';
             this.feedbackDisagree.textContent = '0%';
             this.feedbackUnsure.textContent = '0%';
@@ -968,17 +986,54 @@ class FullAnalysisPlatform {
 
         this.analyticsAccuracy.textContent = `${Math.max(0, 100 - this.statistics.avgRiskScore)}%`;
         this.analyticsProcessing.textContent = `${this.statistics.avgProcessingTime}ms`;
+        const total = Math.max(this.analysisHistory.length, 1);
+        const flaggedCount = this.statistics.highRiskCount;
+        const mediumCount = this.analysisHistory.filter((item) => item.riskScore >= 33 && item.riskScore < 66).length;
+
+        if (this.analyticsFlagRate) {
+            this.analyticsFlagRate.textContent = `${Math.round((flaggedCount / total) * 100)}%`;
+        }
+        if (this.analyticsFlaggedCount) {
+            this.analyticsFlaggedCount.textContent = `${flaggedCount} of ${this.analysisHistory.length}`;
+        }
+        if (this.analyticsRiskBreakdown) {
+            const breakdown = [
+                { label: 'Low', value: Math.round((this.statistics.lowRiskCount / total) * 100), className: 'low' },
+                { label: 'Medium', value: Math.round((mediumCount / total) * 100), className: 'medium' },
+                { label: 'High', value: Math.round((this.statistics.highRiskCount / total) * 100), className: 'high' }
+            ];
+            this.analyticsRiskBreakdown.innerHTML = '';
+            breakdown.forEach((item) => {
+                const pill = document.createElement('div');
+                pill.className = `risk-pill risk-pill-${item.className}`;
+                pill.innerHTML = `<span>${item.value}%</span><span>${item.label}</span>`;
+                this.analyticsRiskBreakdown.appendChild(pill);
+            });
+        }
 
         this.renderMiniChart(this.trendChart, this.analysisHistory.slice(0, 18).map((item) => item.riskScore || 0), 'bars');
-
-        const total = Math.max(this.analysisHistory.length, 1);
         const lowConfidence = this.analysisHistory.filter((item) => item.confidence < 50).length;
         const mediumConfidence = this.analysisHistory.filter((item) => item.confidence >= 50 && item.confidence < 75).length;
         const highConfidence = this.analysisHistory.filter((item) => item.confidence >= 75).length;
+        const lowPercent = Math.round((lowConfidence / total) * 100);
+        const mediumPercent = Math.round((mediumConfidence / total) * 100);
+        const highPercent = Math.round((highConfidence / total) * 100);
 
-        this.distLow.style.width = `${Math.round((lowConfidence / total) * 100)}%`;
-        this.distMedium.style.width = `${Math.round((mediumConfidence / total) * 100)}%`;
-        this.distHigh.style.width = `${Math.round((highConfidence / total) * 100)}%`;
+        this.distLow.style.width = `${lowPercent === 0 ? 5 : lowPercent}%`;
+        this.distMedium.style.width = `${mediumPercent === 0 ? 5 : mediumPercent}%`;
+        this.distHigh.style.width = `${highPercent === 0 ? 5 : highPercent}%`;
+        this.distLow.setAttribute('data-tooltip', `Low: ${lowPercent}% (${lowConfidence}/${this.analysisHistory.length})`);
+        this.distMedium.setAttribute('data-tooltip', `Medium: ${mediumPercent}% (${mediumConfidence}/${this.analysisHistory.length})`);
+        this.distHigh.setAttribute('data-tooltip', `High: ${highPercent}% (${highConfidence}/${this.analysisHistory.length})`);
+        this.distLow.setAttribute('aria-label', `Low confidence ${lowPercent}%`);
+        this.distMedium.setAttribute('aria-label', `Medium confidence ${mediumPercent}%`);
+        this.distHigh.setAttribute('aria-label', `High confidence ${highPercent}%`);
+        this.distLow.title = this.distLow.getAttribute('data-tooltip');
+        this.distMedium.title = this.distMedium.getAttribute('data-tooltip');
+        this.distHigh.title = this.distHigh.getAttribute('data-tooltip');
+        this.distLow.tabIndex = 0;
+        this.distMedium.tabIndex = 0;
+        this.distHigh.tabIndex = 0;
         this.feedbackAgree.textContent = '0%';
         this.feedbackDisagree.textContent = '0%';
         this.feedbackUnsure.textContent = '0%';
@@ -1085,7 +1140,7 @@ class FullAnalysisPlatform {
         return this.normalisePercent(value);
     }
 
-    getDetailPreset(detailLevel = 100) {
+    getDetailPreset(detailLevel = 50) {
         const normalised = this.normalisePercent(detailLevel);
         if (normalised <= 20) {
             return 'basic';
@@ -1218,7 +1273,7 @@ class FullAnalysisPlatform {
                     sensitivity: typeof result.sensitivity === 'number' ? result.sensitivity : 50,
                     detectionMode: 'manual',
                     modelKey: result.modelKey === 'lightweight' ? 'lightweight' : 'mesonet',
-                    detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 100,
+                    detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 50,
                     anonymousAnalytics: typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : true
                 };
 

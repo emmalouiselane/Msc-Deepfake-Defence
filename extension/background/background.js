@@ -243,7 +243,7 @@ class BackgroundService {
             sensitivity: 50,
             detectionMode: 'manual',
             modelKey: 'mesonet',
-            detailLevel: 100,
+            detailLevel: 50,
             anonymousAnalytics: true
         };
     }
@@ -1611,14 +1611,19 @@ class BackgroundService {
             return `${baseExplanation}${confidenceText}${thresholdText}`;
         }
 
+        const confidenceMargin = Number.isFinite(rawOutput) && Number.isFinite(threshold)
+            ? ` Model margin versus threshold is ${(rawOutput - threshold).toFixed(6)}.`
+            : '';
         const rawOutputText = Number.isFinite(rawOutput)
             ? ` Raw model output is ${rawOutput.toFixed(6)}.`
             : '';
         const captureStrategy = inferenceResult?.technicalDetails?.captureStrategy
             ? ` Capture strategy: ${inferenceResult.technicalDetails.captureStrategy}.`
             : '';
+        const technicalContextFallback = ' Full detail includes model-level context for auditability.';
+        const technicalContext = `${rawOutputText}${confidenceMargin}${captureStrategy}`.trim();
 
-        return `${baseExplanation}${confidenceText}${thresholdText}${rawOutputText}${captureStrategy}`.trim();
+        return `${baseExplanation}${confidenceText}${thresholdText}${technicalContext ? ` ${technicalContext}` : technicalContextFallback}`.trim();
     }
 
     calculateSensitivityThreshold(sensitivity) {

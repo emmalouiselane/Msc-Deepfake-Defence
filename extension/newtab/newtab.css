@@ -1114,6 +1114,10 @@ body {
   max-width: 480px;
 }
 
+.analytics-risk-pill-row {
+  margin: 14px 0 0;
+}
+
 .distribution-row {
   display: grid;
   grid-template-columns: 80px 1fr;
@@ -1128,9 +1132,48 @@ body {
   border-radius: 999px;
 }
 .distribution-bar div {
+  position: relative;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, #34d399 0%, #16a34a 100%);
+  cursor: help;
+}
+.distribution-bar div::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  min-width: max-content;
+  max-width: 220px;
+  padding: 5px 8px;
+  border: 1px solid rgba(31, 138, 70, 0.34);
+  border-radius: 8px;
+  color: #e7f4eb;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(15, 27, 20, 0.96);
+  box-shadow: 0 1px 3px rgba(3, 13, 9, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-in-out;
+  z-index: 2;
+}
+.distribution-bar div:hover::after, .distribution-bar div:focus-visible::after {
+  opacity: 1;
+}
+
+#distLow {
+  background: rgba(248, 113, 113, 0.5) !important;
+}
+
+#distMedium {
+  background: rgba(251, 191, 36, 0.5) !important;
+}
+
+#distHigh {
+  background: rgba(74, 222, 128, 0.5) !important;
 }
 
 .upload-container {

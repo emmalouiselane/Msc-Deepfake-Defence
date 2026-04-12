@@ -246,6 +246,14 @@
                         </section>
 
                         <section class="analytics-section">
+                            <h4>Flag Rate</h4>
+                            <div class="analytics-metrics">
+                                <div class="metric-line">All-time Flag Rate: <span id="analyticsFlagRate">0%</span></div>
+                                <div class="metric-line">Flagged Analyses: <span id="analyticsFlaggedCount">0</span></div>
+                            </div>
+                        </section>
+
+                        <section class="analytics-section">
                             <h4>Detection Trends</h4>
                             <div class="trend-panel">
                                 <span class="trend-label">Flag Rate Over Time</span>
@@ -269,6 +277,11 @@
                                     <div class="distribution-bar"><div id="distHigh"></div></div>
                                 </div>
                             </div>
+                        </section>
+
+                        <section class="analytics-section">
+                            <h4>Risk Breakdown</h4>
+                            <div class="risk-pill-row analytics-risk-pill-row" id="analyticsRiskBreakdown"></div>
                         </section>
 
                         <section class="analytics-section">
@@ -371,11 +384,11 @@
                                     <span class="mode-label">Basic</span>
                                 </label>
                                 <label class="mode-option">
-                                    <input type="radio" name="detailLevelPreset" value="context" id="detailContext">
+                                    <input type="radio" name="detailLevelPreset" value="context" id="detailContext" checked>
                                     <span class="mode-label">Additional Context</span>
                                 </label>
                                 <label class="mode-option">
-                                    <input type="radio" name="detailLevelPreset" value="full" id="detailFull" checked>
+                                    <input type="radio" name="detailLevelPreset" value="full" id="detailFull">
                                     <span class="mode-label">Full Detail</span>
                                 </label>
                             </div>
