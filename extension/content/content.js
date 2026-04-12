@@ -155,6 +155,27 @@ class ContentScript {
                url.length > 20;
     }
 
+    getIconMarkup(icon, size = 20) {
+        const icons = {
+            search: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>`,
+            checkCircle: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m9 12 2 2 4-4"></path></svg>`,
+            alertTriangle: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.29 3.86-7.4 12.8A2 2 0 0 0 4.62 20h14.76a2 2 0 0 0 1.73-3.34l-7.4-12.8a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>`,
+            shieldAlert: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V6l8-4 8 4z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>`
+        };
+
+        return icons[icon] || icons.alertTriangle;
+    }
+
+    getRiskIconMarkup(level, size = 20) {
+        const iconByLevel = {
+            low: 'checkCircle',
+            medium: 'alertTriangle',
+            high: 'shieldAlert'
+        };
+
+        return this.getIconMarkup(iconByLevel[level] || 'alertTriangle', size);
+    }
+
     createFloatingButton() {
         console.log('Deepfake Detection: Creating floating button');
         
@@ -162,7 +183,7 @@ class ContentScript {
         this.floatingButton = this.markAsExtensionRoot(document.createElement('div'));
         this.floatingButton.id = 'deepfake-detector-button';
         this.floatingButton.innerHTML = `
-            <div class="detector-icon">🔍</div>
+            <div class="detector-icon">${this.getIconMarkup('search', 24)}</div>
             <div class="detector-tooltip">Analyze for Deepfake</div>
         `;
         
@@ -225,7 +246,7 @@ class ContentScript {
             overlay.classList.add(riskLevel.class + '-risk');
             
             overlay.innerHTML = `
-                <div class="deepfake-overlay-icon">${riskLevel.icon}</div>
+                <div class="deepfake-overlay-icon">${riskLevel.iconMarkup}</div>
                 <div class="deepfake-overlay-text">${riskLevel.label}</div>
                 <div class="deepfake-overlay-confidence">${result.confidence.toFixed(1)}% confidence</div>
             `;
@@ -288,11 +309,11 @@ class ContentScript {
 
     getRiskLevel(score) {
         if (score < 33) {
-            return { label: 'Low Risk', class: 'low', icon: '✅' };
+            return { label: 'Low Risk', class: 'low', iconMarkup: this.getRiskIconMarkup('low', 20) };
         } else if (score < 66) {
-            return { label: 'Medium Risk', class: 'medium', icon: '⚠️' };
+            return { label: 'Medium Risk', class: 'medium', iconMarkup: this.getRiskIconMarkup('medium', 20) };
         } else {
-            return { label: 'High Risk', class: 'high', icon: '🚨' };
+            return { label: 'High Risk', class: 'high', iconMarkup: this.getRiskIconMarkup('high', 20) };
         }
     }
 
@@ -307,8 +328,8 @@ class ContentScript {
             #deepfake-detector-button.deepfake-extension-root {
                 background: linear-gradient(
                     135deg,
-                    rgba(106, 20, 95, 0.8) 0%,
-                    rgba(118, 75, 162, 0) 100%
+                    rgba(21, 109, 53, 0.8) 50%,
+                    rgba(31, 138, 70, 0) 100%
                 );
                 border-radius: 50%;
                 width: 56px;
@@ -325,8 +346,17 @@ class ContentScript {
             }
 
             .deepfake-extension-root .detector-icon {
-                font-size: 24px;
                 color: white;
+                width: 24px;
+                height: 24px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .deepfake-extension-root .detector-icon svg {
+                width: 24px;
+                height: 24px;
             }
 
             .deepfake-extension-root .detector-tooltip {
@@ -722,7 +752,7 @@ class ContentScript {
         
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
-                <div style="font-size: 24px;">${isError ? '⚠️' : riskLevel.icon}</div>
+                <div style="display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;">${isError ? this.getIconMarkup('alertTriangle', 24) : riskLevel.iconMarkup}</div>
                 <div>
                     <div style="font-weight: 600; color: ${isError ? '#dc3545' : riskLevel.color}; margin-bottom: 4px;">
                         ${isError ? 'Analysis Failed' : riskLevel.label}
@@ -763,11 +793,11 @@ class ContentScript {
 
     getRiskLevel(score) {
         if (score < 33) {
-            return { label: 'Low Risk', class: 'low', color: '#28a745', icon: '✅' };
+            return { label: 'Low Risk', class: 'low', color: '#28a745', iconMarkup: this.getRiskIconMarkup('low', 20) };
         } else if (score < 66) {
-            return { label: 'Medium Risk', class: 'medium', color: '#ffc107', icon: '⚠️' };
+            return { label: 'Medium Risk', class: 'medium', color: '#ffc107', iconMarkup: this.getRiskIconMarkup('medium', 20) };
         } else {
-            return { label: 'High Risk', class: 'high', color: '#dc3545', icon: '🚨' };
+            return { label: 'High Risk', class: 'high', color: '#dc3545', iconMarkup: this.getRiskIconMarkup('high', 20) };
         }
     }
 
@@ -1012,7 +1042,7 @@ class ContentScript {
         const errorContainer = this.markAsExtensionRoot(document.createElement('div'));
         errorContainer.className = `${ContentScript.ROOT_CLASS} deepfake-error-overlay`;
         errorContainer.innerHTML = `
-            <div class="deepfake-error-icon">⚠️</div>
+            <div class="deepfake-error-icon">${this.getIconMarkup('alertTriangle', 24)}</div>
             <div class="deepfake-error-text">${errorMessage}</div>
         `;
         
@@ -1046,8 +1076,16 @@ class ContentScript {
                     opacity: 1;
                 }
                 .deepfake-extension-root .deepfake-error-icon {
-                    font-size: 24px;
                     margin-bottom: 8px;
+                    width: 24px;
+                    height: 24px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .deepfake-extension-root .deepfake-error-icon svg {
+                    width: 24px;
+                    height: 24px;
                 }
                 .deepfake-extension-root .deepfake-error-text {
                     font-size: 14px;

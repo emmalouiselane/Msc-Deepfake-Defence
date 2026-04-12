@@ -154,16 +154,7 @@
                                 <button class="icon-btn" id="prevAnalysisBtn" type="button" aria-label="Previous analysis"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><path d="m15 18-6-6 6-6"></path></svg></button>
                                 <button class="btn btn-secondary" id="analysisReanalyseBtn" type="button">Re-analyse this media</button>
                                 <button class="icon-btn" id="nextAnalysisBtn" type="button" aria-label="Next analysis"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><path d="m9 18 6-6-6-6"></path></svg></button>
-                            </div>
-                            <section class="feedback-panel">
-                                <h4>Feedback</h4>
-                                <p>Do you agree with this analysis?</p>
-                                <div class="feedback-actions">
-                                    <button class="btn btn-secondary feedback-btn" type="button">Maybe</button>
-                                    <button class="btn btn-secondary feedback-btn" type="button">Yes</button>
-                                    <button class="btn btn-secondary feedback-btn" type="button">No</button>
-                                </div>
-                            </section>                            
+                            </div>                          
                         </div>
                         <aside class="analysis-sidebar">
                             <section class="analysis-panel">
@@ -198,6 +189,16 @@
                                 </div>
                             </section>
                         </aside>
+                        
+                        <section class="feedback-panel">
+                            <h4>Feedback</h4>
+                            <p>Do you agree with this analysis?</p>
+                            <div class="feedback-actions">
+                                <button class="btn btn-secondary feedback-btn" type="button">Maybe</button>
+                                <button class="btn btn-secondary feedback-btn" type="button">Yes</button>
+                                <button class="btn btn-secondary feedback-btn" type="button">No</button>
+                            </div>
+                        </section>  
                     </section>
                 </div>
 
@@ -279,7 +280,13 @@
                     <section class="upload-section">
                         <div class="upload-container">
                             <div class="upload-area-large" id="uploadAreaLarge">
-                                <div class="upload-icon">📁</div>
+                                <div class="upload-icon" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-up">
+                                        <path d="m12 10 3-3 3 3"></path>
+                                        <path d="M15 13V7"></path>
+                                        <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.93l-.81-1.14A2 2 0 0 0 7.91 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+                                    </svg>
+                                </div>
                                 <h2>Upload media for analysis</h2>
                                 <p>Drag and drop images or videos here, or click to browse.</p>
                                 <p class="upload-subtext">Supports JPG, PNG, GIF, MP4, and WebM up to 50MB.</p>
@@ -319,10 +326,13 @@
 
                         <section class="settings-group">
                             <h4>Model Settings</h4>
-                            <label class="check-row">
-                                <input type="checkbox" id="btnToggle" name="btnToggle">
-                                <span>Detection enabled</span>
-                            </label>
+                            <div class="row settings-toggle-row">
+                                <p id="detectionToggleLabel">Detection disabled</p>
+                                <label class="toggle">
+                                    <input type="checkbox" id="btnToggle" name="btnToggle" aria-label="Detection enabled">
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
                             <div class="row settings-inline-row">
                                 <p>Model</p>
                                 <select id="modelSelect" class="model-select">

@@ -104,6 +104,7 @@ body {
 .placeholder-symbol svg,
 .icon-btn svg,
 .history-search-icon svg {
+  color: $text-on-accent;
   width: 100%;
   height: 100%;
   stroke: currentColor;
@@ -179,7 +180,6 @@ body {
   overflow: hidden;
   background: $surface-glass;
   border: 1px solid rgba($brand-primary, 0.08);
-  border-radius: 20px;
   box-shadow: $shadow-md;
 }
 
@@ -750,6 +750,7 @@ body {
   background: rgba($bg-surface-alt, 0.92);
   border: 1px solid $border-subtle;
   border-radius: 12px;
+  color: white;
 }
 
 .history-list,
@@ -1029,6 +1030,58 @@ body {
   font-weight: 600;
 }
 
+.settings-toggle-row {
+  margin-bottom: 12px;
+  display: flex;
+  gap: 16px;
+
+  p {
+    margin: auto 0;
+    font-weight: 600;
+  }
+}
+
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+
+  input {
+    display: none;
+  }
+}
+
+.slider {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+  border-radius: 34px;
+  background-color: $neutral-disabled;
+  transition: $transition-base;
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: 4px;
+    bottom: 4px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background-color: $neutral-track;
+    transition: $transition-base;
+  }
+}
+
+input:checked + .slider {
+  background-color: $brand-primary;
+
+  &::before {
+    background-color: $text-on-accent;
+    transform: translateX(26px);
+  }
+}
+
 .check-row {
   display: flex;
   align-items: center;
@@ -1067,6 +1120,7 @@ body {
   background: $surface-elevated;
   border: 1px solid $border-subtle;
   border-radius: 12px;
+  color: white;
 }
 
 .model-help {
@@ -1175,5 +1229,3 @@ body {
     align-items: flex-start;
   }
 }
-
-

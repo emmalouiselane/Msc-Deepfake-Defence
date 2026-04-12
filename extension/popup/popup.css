@@ -109,6 +109,16 @@ body {
   background: #16a34a;
 }
 
+.btn-secondary {
+  color: #f4fff7;
+  background: #0f281b;
+  border-color: rgba(31, 138, 70, 0.4);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: #153022;
+  border-color: rgba(31, 138, 70, 0.55);
+}
+
 .footer {
   padding: 12px 20px;
   text-align: center;
@@ -136,7 +146,7 @@ body {
   inset: 0;
   cursor: pointer;
   border-radius: 34px;
-  background-color: #e7f4eb;
+  background-color: gray;
   transition: 0.3s ease;
 }
 .slider::before {
@@ -206,26 +216,14 @@ input:checked + .slider::before {
   font-weight: 600;
 }
 
-.model-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.model-select {
-  width: 120px;
-  padding: 8px 10px;
-  border: 1px solid #253b2f;
-  border-radius: 6px;
-  color: #e7f4eb;
-  background: #0f1b14;
-}
-
-.model-help {
+.more-settings-section p {
   margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: #94b19f;
+}
+.more-settings-section .btn {
+  flex: 0 0 auto;
+  min-width: 136px;
+  padding: 8px 12px;
+  font-size: 12px;
 }
 
 .slider-section {

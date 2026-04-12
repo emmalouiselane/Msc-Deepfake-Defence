@@ -123,6 +123,7 @@ class FullAnalysisPlatform {
         this.reanalyseLatestBtn = document.getElementById('reanalyseLatestBtn');
 
         this.btnToggle = document.getElementById('btnToggle');
+        this.detectionToggleLabel = document.getElementById('detectionToggleLabel');
         this.sensitivitySlider = document.getElementById('sensitivitySlider');
         this.customSlider = document.getElementById('customSlider');
         this.sliderTrack = document.getElementById('sliderTrack');
@@ -170,6 +171,8 @@ class FullAnalysisPlatform {
         this.detailLevelSlider?.addEventListener('input', (event) => this.updateDetailLevel(event.target.value));
         this.btnToggle?.addEventListener('change', () => {
             this.settings.detectionEnabled = this.btnToggle.checked;
+            this.updateDetectionToggleLabel();
+            this.updateDetectorAvailabilityStatus();
         });
         this.manualMode?.addEventListener('change', () => this.updateDetectionMode());
         this.automaticMode?.addEventListener('change', () => this.updateDetectionMode());
@@ -182,7 +185,16 @@ class FullAnalysisPlatform {
     }
 
     initializeNavigation() {
-        this.showPage('dashboard');
+        this.showPage(this.getRequestedPage());
+    }
+
+    getRequestedPage() {
+        const validPages = new Set(Object.keys(this.pageHeaders));
+        const params = new URLSearchParams(window.location.search);
+        const hashPage = window.location.hash.replace('#', '').trim();
+        const requestedPage = (params.get('page') || hashPage || 'dashboard').trim();
+
+        return validPages.has(requestedPage) ? requestedPage : 'dashboard';
     }
 
     handleNavigation(navItem) {
@@ -199,6 +211,11 @@ class FullAnalysisPlatform {
     }
 
     showPage(pageName) {
+        this.updatePageUrl(pageName);
+        this.navItems.forEach((item) => {
+            item.classList.toggle('active', item.dataset.page === pageName);
+        });
+
         this.pages.forEach((page) => {
             page.style.display = 'none';
         });
@@ -211,6 +228,16 @@ class FullAnalysisPlatform {
         this.currentPage = pageName;
         this.updatePageHeader(pageName);
         this.renderAll();
+    }
+
+    updatePageUrl(pageName) {
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('page', pageName);
+            window.history.replaceState({}, '', url);
+        } catch (error) {
+            console.warn('Deepfake Detection: Could not update page URL.', error);
+        }
     }
 
     updatePageHeader(pageName) {
@@ -276,7 +303,7 @@ class FullAnalysisPlatform {
         this.updateStatistics();
         this.currentAnalysisIndex = 0;
         this.saveData();
-        this.updateStatus('', 'Ready');
+        this.updateDetectorAvailabilityStatus();
         this.navigateToPage('history');
     }
 
@@ -402,7 +429,7 @@ class FullAnalysisPlatform {
             console.error('Re-analysis error:', error);
             this.showError(error.message || 'Re-analysis failed.');
         } finally {
-            this.updateStatus('', 'Ready');
+            this.updateDetectorAvailabilityStatus();
         }
     }
 
@@ -936,6 +963,25 @@ class FullAnalysisPlatform {
         this.settings.detectionMode = this.automaticMode.checked ? 'automatic' : 'manual';
     }
 
+    updateDetectionToggleLabel() {
+        if (!this.detectionToggleLabel || !this.btnToggle) {
+            return;
+        }
+
+        this.detectionToggleLabel.textContent = this.btnToggle.checked
+            ? 'Detection enabled'
+            : 'Detection disabled';
+    }
+
+    updateDetectorAvailabilityStatus() {
+        if (this.settings.detectionEnabled) {
+            this.updateStatus('', 'Ready');
+            return;
+        }
+
+        this.updateStatus('inactive', 'Offline');
+    }
+
     updateModelSelection(value) {
         this.settings.modelKey = value === 'mesonet' ? 'mesonet' : 'lightweight';
         this.modelHelpText.textContent = this.settings.modelKey === 'mesonet'
@@ -949,6 +995,8 @@ class FullAnalysisPlatform {
         }
 
         this.btnToggle.checked = this.settings.detectionEnabled;
+        this.updateDetectionToggleLabel();
+        this.updateDetectorAvailabilityStatus();
         this.updateSliderVisual(this.sensitivitySlider, this.sliderTrack, this.sliderThumb, this.settings.sensitivity);
         this.updateSliderVisual(this.detailLevelSlider, this.detailSliderTrack, this.detailSliderThumb, this.settings.detailLevel);
         this.manualMode.checked = this.settings.detectionMode !== 'automatic';

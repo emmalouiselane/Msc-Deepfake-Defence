@@ -79,6 +79,17 @@ body {
   }
 }
 
+.btn-secondary {
+  color: $text-on-accent;
+  background: $surface-accent-subtle;
+  border-color: rgba($brand-primary, 0.4);
+
+  &:hover:not(:disabled) {
+    background: $surface-accent-soft;
+    border-color: rgba($brand-primary, 0.55);
+  }
+}
+
 .footer {
   padding: 12px 20px;
   text-align: center;
@@ -108,7 +119,7 @@ body {
   inset: 0;
   cursor: pointer;
   border-radius: 34px;
-  background-color: $text-primary;
+  background-color: gray;
   transition: $transition-base;
 
   &::before {
@@ -184,26 +195,17 @@ input:checked + .slider {
   font-weight: 600;
 }
 
-.model-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
+.more-settings-section {
+  p {
+    margin: 0;
+  }
 
-.model-select {
-  width: 120px;
-  padding: 8px 10px;
-  border: 1px solid $border-subtle;
-  border-radius: $radius-sm;
-  color: $text-primary;
-  background: $bg-surface;
-}
-
-.model-help {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.4;
-  color: $text-secondary;
+  .btn {
+    flex: 0 0 auto;
+    min-width: 136px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
 }
 
 .slider-section {

@@ -11,6 +11,7 @@ class DeepfakeDetector {
 
     initializeElements() {
         this.openNewTabBtn = document.getElementById('openNewTabBtn');
+        this.moreSettingsBtn = document.getElementById('moreSettingsBtn');
         this.btnToggle = document.getElementById('btnToggle');
         this.sensitivitySlider = document.getElementById('sensitivitySlider');
         this.customSlider = document.getElementById('customSlider');
@@ -20,17 +21,15 @@ class DeepfakeDetector {
         this.manualMode = document.getElementById('manualMode');
         this.automaticMode = document.getElementById('automaticMode');
         this.modeSection = document.querySelector('.mode-section');
-        this.modelSelect = document.getElementById('modelSelect');
-        this.modelHelpText = document.getElementById('modelHelpText');
     }
 
     attachEventListeners() {
-        this.openNewTabBtn.addEventListener('click', () => this.openNewTab());
+        this.openNewTabBtn.addEventListener('click', () => this.openNewTab('dashboard'));
+        this.moreSettingsBtn.addEventListener('click', () => this.openNewTab('settings'));
         this.btnToggle.addEventListener('change', () => this.handleToggle());
         this.sensitivitySlider.addEventListener('input', (event) => this.handleSensitivity(event.target.value));
         this.manualMode.addEventListener('change', () => this.handleDetectionMode());
         this.automaticMode.addEventListener('change', () => this.handleDetectionMode());
-        this.modelSelect.addEventListener('change', (event) => this.handleModelSelection(event.target.value));
 
         this.customSlider.addEventListener('click', (event) => this.handleSliderPointer(event));
         this.sliderThumb.addEventListener('mousedown', () => {
@@ -127,21 +126,6 @@ class DeepfakeDetector {
         await this.sendMessageWithRetry('updateDetectionMode', { mode });
     }
 
-    async handleModelSelection(value) {
-        const modelKey = this.normalizeModelKey(value);
-        this.modelSelect.value = modelKey;
-        this.updateModelHelp(modelKey);
-
-        await chrome.storage.local.set({ modelKey });
-        const response = await this.sendMessageWithRetry('updateModelType', { modelKey });
-        if (!response) {
-            return;
-        }
-
-        this.modelSelect.value = this.normalizeModelKey(response.modelKey);
-        this.updateModelHelp(this.modelSelect.value);
-    }
-
     handleSliderPointer(event) {
         if (!this.btnToggle.checked) {
             return;
@@ -162,10 +146,6 @@ class DeepfakeDetector {
         return Math.max(0, Math.min(100, Math.round(parsed)));
     }
 
-    normalizeModelKey(value) {
-        return value === 'mesonet' ? 'mesonet' : 'lightweight';
-    }
-
     updateSlider(percent) {
         this.sliderTrack.style.width = `${percent}%`;
         this.sliderThumb.style.left = `${percent}%`;
@@ -184,15 +164,6 @@ class DeepfakeDetector {
         this.modeSection.classList.toggle('disabled', !enabled);
         this.manualMode.parentElement.style.cursor = enabled ? 'pointer' : 'not-allowed';
         this.automaticMode.parentElement.style.cursor = 'not-allowed';
-    }
-
-    updateModelHelp(modelKey) {
-        if (modelKey === 'mesonet') {
-            this.modelHelpText.textContent = 'MesoNet is heavier and slower, but it is the stronger research path when a trained export is available.';
-            return;
-        }
-
-        this.modelHelpText.textContent = 'Lightweight is faster. MesoNet is heavier but intended to be more capable.';
     }
 
     updateStatus(isEnabled) {
@@ -231,15 +202,11 @@ class DeepfakeDetector {
             this.updateStatus(this.btnToggle.checked);
         }
 
-        if (changes.modelKey) {
-            const modelKey = this.normalizeModelKey(changes.modelKey.newValue);
-            this.modelSelect.value = modelKey;
-            this.updateModelHelp(modelKey);
-        }
     }
 
-    openNewTab() {
-        chrome.tabs.create({ url: chrome.runtime.getURL('newtab/newtab.html') });
+    openNewTab(page = 'dashboard') {
+        const url = chrome.runtime.getURL(`newtab/newtab.html?page=${encodeURIComponent(page)}`);
+        chrome.tabs.create({ url });
     }
 
     async loadSettings() {
@@ -247,8 +214,7 @@ class DeepfakeDetector {
             const defaults = {
                 detectionEnabled: false,
                 sensitivity: 50,
-                detectionMode: 'manual',
-                modelKey: 'lightweight'
+                detectionMode: 'manual'
             };
             const result = await chrome.storage.local.get(Object.keys(defaults));
             const settings = { ...defaults, ...result };
@@ -256,8 +222,6 @@ class DeepfakeDetector {
             this.btnToggle.checked = Boolean(settings.detectionEnabled);
             this.manualMode.checked = true;
             this.automaticMode.checked = false;
-            this.modelSelect.value = this.normalizeModelKey(settings.modelKey);
-            this.updateModelHelp(this.modelSelect.value);
             this.updateSlider(this.normalizeSensitivity(settings.sensitivity));
             this.setSliderState(this.btnToggle.checked);
             this.setDetectionModeState(this.btnToggle.checked);
