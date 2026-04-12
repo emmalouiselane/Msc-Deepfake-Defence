@@ -315,19 +315,6 @@
                         </div>
 
                         <section class="settings-group">
-                            <h4>Detection Sensitivity</h4>
-                            <div class="settings-slider-row">
-                                <span>Conservative</span>
-                                <div class="custom-slider large-slider" id="customSlider">
-                                    <div class="custom-slider-track" id="sliderTrack"></div>
-                                    <div class="custom-slider-thumb" id="sliderThumb"></div>
-                                    <input type="range" id="sensitivitySlider" name="sensitivitySlider" min="0" max="100" value="50" class="hidden-slider">
-                                </div>
-                                <span>Strict</span>
-                            </div>
-                        </section>
-
-                        <section class="settings-group">
                             <h4>Model Settings</h4>
                             <div class="row settings-toggle-row">
                                 <p id="detectionToggleLabel">Detection disabled</p>
@@ -347,11 +334,30 @@
                         </section>
 
                         <section class="settings-group">
-                            <h4>Privacy Settings</h4>
-                            <label class="check-row">
-                                <input type="checkbox" id="anonymousAnalytics">
-                                <span>Allow anonymous analytics (no personal details will be shared)</span>
-                            </label>
+                            <h4>Detection Sensitivity</h4>
+                            <div class="settings-slider-row">
+                                <span>Conservative</span>
+                                <div class="custom-slider large-slider" id="customSlider">
+                                    <div class="custom-slider-track" id="sliderTrack"></div>
+                                    <div class="custom-slider-thumb" id="sliderThumb"></div>
+                                    <input type="range" id="sensitivitySlider" name="sensitivitySlider" min="0" max="100" value="50" class="hidden-slider">
+                                </div>
+                                <span>Strict</span>
+                            </div>
+                        </section>
+
+                        <section class="settings-group">
+                            <h4>Detection Mode</h4>
+                            <div class="mode-toggle">
+                                <label class="mode-option">
+                                    <input type="radio" name="detectionMode" value="manual" id="manualMode" checked>
+                                    <span class="mode-label">Manual</span>
+                                </label>
+                                <label class="mode-option">
+                                    <input type="radio" name="detectionMode" value="automatic" id="automaticMode" disabled>
+                                    <span class="mode-label">Automatic</span>
+                                </label>
+                            </div>
                         </section>
 
                         <section class="settings-group">
@@ -373,17 +379,11 @@
                         </section>
 
                         <section class="settings-group">
-                            <h4>Detection Mode</h4>
-                            <div class="mode-toggle">
-                                <label class="mode-option">
-                                    <input type="radio" name="detectionMode" value="manual" id="manualMode" checked>
-                                    <span class="mode-label">Manual</span>
-                                </label>
-                                <label class="mode-option">
-                                    <input type="radio" name="detectionMode" value="automatic" id="automaticMode" disabled>
-                                    <span class="mode-label">Automatic</span>
-                                </label>
-                            </div>
+                            <h4>Privacy Settings</h4>
+                            <label class="check-row">
+                                <input type="checkbox" id="anonymousAnalytics">
+                                <span>Allow anonymous analytics (no personal details will be shared)</span>
+                            </label>
                         </section>
 
                         <div class="settings-actions">

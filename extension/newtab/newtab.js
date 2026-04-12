@@ -364,14 +364,14 @@ class FullAnalysisPlatform {
 
     getRiskLevel(score) {
         if (score < 33) {
-            return { label: '- Likely Authentic', class: 'low' };
+            return { label: 'Likely Authentic', class: 'low' };
         }
 
         if (score < 66) {
-            return { label: '- Unsure', class: 'medium' };
+            return { label: 'Unsure', class: 'medium' };
         }
 
-        return { label: '- Likely Synthetic', class: 'high' };
+        return { label: 'Likely Synthetic', class: 'high' };
     }
 
     getCurrentAnalysis() {
@@ -533,8 +533,8 @@ class FullAnalysisPlatform {
                 this.flagRateInsight.textContent = `${flaggedCount} of ${recentItems.length} recent items were flagged (${latestRate}%).`;
                 if (this.flagRateLegend) {
                     this.flagRateLegend.innerHTML = `
-                        <span class="chart-key"><strong>${latestRate}%</strong> current</span>
                         <span class="chart-key"><strong>${recentItems.length}</strong> samples</span>
+                        <span class="chart-key"><strong>${latestRate}%</strong> current</span>
                     `;
                 }
             }
@@ -619,14 +619,20 @@ class FullAnalysisPlatform {
             return;
         }
 
-        data.forEach((value, index) => {
+        const normalisedData = data.map((value) => this.normalisePercent(value));
+        const maxValue = Math.max(...normalisedData, 0);
+
+        normalisedData.forEach((normalisedValue, index) => {
             const bar = document.createElement('span');
-            const normalisedValue = this.normalisePercent(value);
             const segmentLabel = Array.isArray(options.segmentLabels) ? options.segmentLabels[index] : null;
             const valueLabelPrefix = options.valueLabelPrefix || 'Value';
             const tooltipText = `${segmentLabel || valueLabelPrefix}: ${normalisedValue}%`;
+            const proportionalHeight = maxValue > 0
+                ? Math.round((normalisedValue / maxValue) * 100)
+                : 1;
+            const segmentHeight = Math.max(1, proportionalHeight);
             bar.className = variant === 'wave' ? 'chart-wave-segment' : 'chart-bar-segment';
-            bar.style.setProperty('--segment-height', `${Math.max(16, normalisedValue)}%`);
+            bar.style.setProperty('--segment-height', `${segmentHeight}%`);
             bar.setAttribute('aria-label', tooltipText);
             bar.setAttribute('data-tooltip', tooltipText);
             bar.title = tooltipText;
@@ -941,22 +947,30 @@ class FullAnalysisPlatform {
             return;
         }
 
-        this.analysisHistoryList.innerHTML = runs.map((run, index) => `
-            <article class="analysis-history-row">
-                <div class="analysis-history-row-top">
-                    <span class="analysis-history-badge">${index === 0 ? 'Latest' : `Run ${runs.length - index}`}</span>
-                    <span class="analysis-history-time">${this.formatDateTime(run.timestamp)}</span>
-                </div>
-                <div class="analysis-history-stats">
-                    <div class="analysis-history-stats-row">
-                        <span>${Math.round(run.riskScore || 0)}% score</span>
-                        <span>${Math.round(run.confidence || 0)}% confidence</span>
-                        <span>${Number(run.processingTime) || 0}ms</span>
+        this.analysisHistoryList.innerHTML = runs.map((run, index) => {
+            const riskScore = this.normalisePercent(run.riskScore || 0);
+            const confidence = this.normalisePercent(run.confidence || 0);
+            const riskLevel = this.getRiskLevel(riskScore);
+            return `
+                <article class="analysis-history-row">
+                    <div class="analysis-history-row-top">
+                        <span class="analysis-history-badge">${index === 0 ? 'Latest' : `Run ${runs.length - index}`}</span>
+                        <span class="analysis-history-time">${this.formatDateTime(run.timestamp)}</span>
                     </div>
-                    <span class="analysis-model">${run.model || 'Unknown model'}</span>
-                </div>
-            </article>
-        `).join('');
+                    <div class="analysis-history-stats">
+                        <div class="analysis-history-visual">
+                            <span class="analysis-score">${riskScore}% score</span>
+                            <div class="analysis-score-ring risk-${riskLevel.class}" style="--ring-progress: ${riskScore};" role="img" aria-label="Risk score ${riskScore}%"></div>
+                            <div class="analysis-caption">${riskLevel.label} with ${confidence}% confidence</div>
+                        </div>
+                        <div class="analysis-history-stats-row">
+                            <span>${Number(run.processingTime) || 0}ms</span>
+                            <span class="analysis-model">${run.model || 'Unknown model'}</span>
+                        </div>
+                    </div>
+                </article>
+            `;
+        }).join('');
     }
 
     async renderMediaPreview(result, riskLevel) {

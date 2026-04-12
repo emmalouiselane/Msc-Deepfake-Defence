@@ -827,11 +827,37 @@ body {
   gap: 10px;
 }
 
-.analysis-history-stats-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.analysis-history-visual {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  text-align: center;
+}
+
+.analysis-history-visual .analysis-score {
+  min-width: 56px;
+  margin: 0;
+  color: $text-primary;
+  font-size: 14px;
+}
+
+.analysis-history-visual .analysis-score-ring {
+  width: 30px;
+  height: 30px;
+
+  &::before {
+    inset: 7px;
+  }
+}
+
+.analysis-history-visual .analysis-caption {
+  margin-left: 2px;
+  font-size: 12px;
+}
+
+.analysis-history-stats-row {
+  width: 100%;
+  display: flex;
 
   :first-child {
     text-align: left;
