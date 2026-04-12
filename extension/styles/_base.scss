@@ -14,9 +14,9 @@
   }
 
   body {
-    font-family: $font-sans;
-    color: $color-text;
-    background: $color-bg;
+    font-family: $font-base;
+    color: $text-primary;
+    background: $bg-app;
   }
 
   button,
@@ -40,8 +40,8 @@
   }
 
   #{$selector} {
-    font-family: $font-sans;
-    color: $color-text;
+    font-family: $font-base;
+    color: $text-primary;
   }
 
   #{$selector} button,
@@ -55,3 +55,4 @@
     color: inherit;
   }
 }
+

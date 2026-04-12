@@ -1,8 +1,8 @@
 @use "tokens" as *;
 
 @mixin card {
-  background: $color-surface;
-  border: 1px solid $color-border;
+  background: $bg-surface;
+  border: 1px solid $border-subtle;
   border-radius: $radius-md;
   box-shadow: $shadow-sm;
 }
@@ -20,7 +20,7 @@
   border: 1px solid transparent;
   border-radius: $radius-sm;
   cursor: pointer;
-  font: 600 14px/1 $font-ui;
+  font: 600 14px/1 $font-emphasis;
   text-decoration: none;
   @include interactive-surface;
 }
@@ -30,3 +30,4 @@
   opacity: 0;
   pointer-events: none;
 }
+

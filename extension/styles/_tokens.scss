@@ -1,31 +1,92 @@
-$font-sans: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-$font-ui: "Google Sans", "Segoe UI", Roboto, Arial, sans-serif;
+$font-base: "Manrope", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$font-emphasis: "Manrope", "Google Sans", "Segoe UI", Roboto, Arial, sans-serif;
 
-$color-bg: #f5f3f8;
-$color-surface: #ffffff;
-$color-surface-alt: #fbf8fc;
-$color-text: #2c2430;
-$color-text-muted: #6f6475;
-$color-border: #e4dbe7;
-$color-shadow: rgba(42, 27, 47, 0.12);
+$bg-app: #08110d;
+$bg-surface: #0f1b14;
+$bg-surface-alt: #132118;
+$text-primary: #e7f4eb;
+$text-secondary: #94b19f;
+$border-subtle: #253b2f;
+$shadow-color: rgba(3, 13, 9, 0.45);
+$overlay-strong: rgba(0, 0, 0, 0.8);
+$text-on-accent: #f4fff7;
+$text-on-warning: #1b1406;
+$neutral-0: #ffffff;
+$neutral-track: #d1dccf;
+$neutral-disabled: #5a7061;
 
-$color-accent: #6a145f;
-$color-accent-strong: #52114b;
-$color-accent-soft: #f3e3f0;
-$color-accent-tint: #faf2f8;
+$brand-primary: #1f8a46;
+$brand-strong: #16a34a;
+$brand-popup-header: #1f8a46;
+$surface-accent-soft: #153022;
+$surface-accent-tint: #1a3a28;
+$surface-accent-subtle: #0f281b;
+$surface-accent-muted: #2f7b50;
 
-$color-success: #2f9b57;
-$color-warning: #d6a018;
-$color-danger: #d44f5c;
-$color-info: #4d63d8;
+$state-success: #4ade80;
+$state-warning: #fbbf24;
+$state-danger: #f87171;
+$state-info: #34d399;
+$state-success-deep: #14532d;
+$state-warning-deep: #78350f;
+$state-danger-deep: #7f1d1d;
 
 $radius-sm: 6px;
 $radius-md: 10px;
 $radius-lg: 16px;
 
-$shadow-sm: 0 1px 3px $color-shadow;
-$shadow-md: 0 8px 24px rgba(42, 27, 47, 0.08);
-$shadow-lg: 0 18px 48px rgba(42, 27, 47, 0.12);
+$shadow-sm: 0 1px 3px $shadow-color;
+$shadow-md: 0 8px 24px rgba(3, 13, 9, 0.4);
+$shadow-lg: 0 18px 48px rgba(3, 13, 9, 0.55);
 
 $transition-fast: 0.2s ease;
 $transition-base: 0.3s ease;
+
+$gradient-brand: linear-gradient(135deg, $brand-primary 0%, $brand-strong 100%);
+$gradient-brand-soft: linear-gradient(180deg, rgba($brand-primary, 0.4) 0%, rgba($brand-strong, 0.65) 100%);
+$gradient-surface: linear-gradient(180deg, rgba($bg-surface-alt, 0.96) 0%, rgba($bg-surface, 0.95) 100%);
+$gradient-app-shell: radial-gradient(circle at top right, rgba($brand-primary, 0.22), transparent 55%),
+  linear-gradient(180deg, #08120d 0%, #0c1711 100%);
+
+$surface-elevated: rgba($bg-surface, 0.96);
+$surface-panel: rgba($bg-surface, 0.92);
+$surface-muted: rgba($bg-surface-alt, 0.9);
+$surface-glass: rgba($bg-surface, 0.78);
+$surface-hover: rgba($brand-primary, 0.12);
+
+// Backward compatibility aliases while styles migrate.
+$font-sans: $font-base;
+$font-ui: $font-emphasis;
+$color-bg: $bg-app;
+$color-surface: $bg-surface;
+$color-surface-alt: $bg-surface-alt;
+$color-text: $text-primary;
+$color-text-muted: $text-secondary;
+$color-border: $border-subtle;
+$color-shadow: $shadow-color;
+$color-overlay: $overlay-strong;
+$color-on-accent: $text-on-accent;
+$color-on-warning: $text-on-warning;
+$color-neutral-0: $neutral-0;
+$color-neutral-100: $neutral-track;
+$color-neutral-400: $neutral-disabled;
+$color-accent: $brand-primary;
+$color-accent-strong: $brand-strong;
+$color-accent-soft: $surface-accent-soft;
+$color-accent-tint: $surface-accent-tint;
+$color-accent-subtle: $surface-accent-subtle;
+$color-accent-muted: $surface-accent-muted;
+$color-success: $state-success;
+$color-warning: $state-warning;
+$color-danger: $state-danger;
+$color-info: $state-info;
+$color-success-deep: $state-success-deep;
+$color-warning-deep: $state-warning-deep;
+$color-danger-deep: $state-danger-deep;
+$gradient-accent: $gradient-brand;
+$gradient-accent-soft: $gradient-brand-soft;
+$gradient-panel: $gradient-surface;
+$gradient-app: $gradient-app-shell;
+$surface-strong: $surface-elevated;
+$surface-default: $surface-panel;
+$surface-soft: $surface-muted;

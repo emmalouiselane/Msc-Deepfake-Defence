@@ -1,0 +1,60 @@
+@use "tokens" as *;
+
+// Archived selectors with no current usage in HTML/JS.
+
+.compact-chart-panel {
+  // Previously grouped with .analysis-panel.
+}
+
+.confidence-graph {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  min-height: 84px;
+}
+
+.score-low {
+  color: $state-success;
+}
+
+.score-medium {
+  color: $state-warning;
+}
+
+.score-high {
+  color: $state-danger;
+}
+
+.deepfake-analyzed {
+  animation: deepfake-highlight 2s ease-in-out;
+  border-radius: 4px;
+}
+
+.deepfake-risk-overlay {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1000;
+  box-sizing: border-box;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: $text-on-accent;
+  background: $overlay-strong;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: $font-base;
+}
+
+.risk-low {
+  background: rgba($state-success, 0.92);
+}
+
+.risk-medium {
+  background: rgba($state-warning, 0.92);
+  color: $text-on-warning;
+}
+
+.risk-high {
+  background: rgba($state-danger, 0.92);
+}
+

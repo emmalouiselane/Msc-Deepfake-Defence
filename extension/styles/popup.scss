@@ -27,8 +27,8 @@ body {
 .header {
   padding: 20px;
   text-align: center;
-  color: #fff;
-  background: linear-gradient(135deg, $color-accent 0%, $color-accent-strong 100%);
+  color: $text-on-accent;
+  background: $brand-popup-header;
 
   h1 {
     margin: 0;
@@ -49,7 +49,7 @@ body {
   justify-content: center;
   padding: 10px 12px;
   border-radius: $radius-sm;
-  background: $color-accent-soft;
+  background: $surface-accent-soft;
 
   p {
     margin: 0;
@@ -71,37 +71,25 @@ body {
 }
 
 .btn-primary {
-  color: #fff;
-  background: $color-accent;
+  color: $text-on-accent;
+  background: $brand-primary;
 
   &:hover:not(:disabled) {
-    background: $color-accent-strong;
+    background: $brand-strong;
   }
 }
 
 .footer {
   padding: 12px 20px;
   text-align: center;
-  background: $color-surface;
-  border-top: 1px solid $color-border;
+  background: $bg-surface;
+  border-top: 1px solid $border-subtle;
 
   p {
     margin: 0;
     font-size: 11px;
-    color: $color-text-muted;
+    color: $text-secondary;
   }
-}
-
-.score-low {
-  color: $color-success;
-}
-
-.score-medium {
-  color: $color-warning;
-}
-
-.score-high {
-  color: $color-danger;
 }
 
 .toggle {
@@ -120,7 +108,7 @@ body {
   inset: 0;
   cursor: pointer;
   border-radius: 34px;
-  background-color: $color-text;
+  background-color: $text-primary;
   transition: $transition-base;
 
   &::before {
@@ -131,13 +119,13 @@ body {
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background-color: #fff;
+    background-color: $text-on-accent;
     transition: $transition-base;
   }
 }
 
 input:checked + .slider {
-  background-color: $color-accent;
+  background-color: $brand-primary;
 
   &::before {
     transform: translateX(26px);
@@ -163,10 +151,10 @@ input:checked + .slider {
   display: flex;
   align-items: center;
   padding: 6px 12px;
-  border: 1px solid $color-border;
+  border: 1px solid $border-subtle;
   border-radius: $radius-sm;
   cursor: pointer;
-  background: $color-surface;
+  background: $bg-surface;
 
   input[type="radio"] {
     display: none;
@@ -174,25 +162,25 @@ input:checked + .slider {
 
   &:hover:not(:has(input:disabled)) {
     transform: translateY(-1px);
-    border-color: $color-accent;
-    background: $color-accent-soft;
-    box-shadow: 0 2px 4px rgba($color-accent, 0.12);
+    border-color: $brand-primary;
+    background: $surface-accent-soft;
+    box-shadow: 0 2px 4px rgba($brand-primary, 0.12);
   }
 
   &:has(input[type="radio"]:checked) {
-    border-color: $color-accent;
-    background: $color-accent-soft;
+    border-color: $brand-primary;
+    background: $surface-accent-soft;
   }
 }
 
 .mode-label {
   font-size: 12px;
-  color: $color-text-muted;
+  color: $text-secondary;
   transition: color $transition-fast;
 }
 
 .mode-option input[type="radio"]:checked + .mode-label {
-  color: $color-accent;
+  color: $brand-primary;
   font-weight: 600;
 }
 
@@ -205,17 +193,17 @@ input:checked + .slider {
 .model-select {
   width: 120px;
   padding: 8px 10px;
-  border: 1px solid $color-border;
+  border: 1px solid $border-subtle;
   border-radius: $radius-sm;
-  color: $color-text;
-  background: $color-surface;
+  color: $text-primary;
+  background: $bg-surface;
 }
 
 .model-help {
   margin: 0;
   font-size: 11px;
   line-height: 1.4;
-  color: $color-text-muted;
+  color: $text-secondary;
 }
 
 .slider-section {
@@ -228,7 +216,7 @@ input:checked + .slider {
   height: 6px;
   cursor: pointer;
   border-radius: 999px;
-  background: #ddd;
+  background: rgba($neutral-track, 0.35);
 
   &.disabled {
     opacity: 0.5;
@@ -236,11 +224,11 @@ input:checked + .slider {
 
     .custom-slider-thumb {
       cursor: not-allowed;
-      background: #999;
+      background: $neutral-disabled;
     }
 
     .custom-slider-track {
-      background: #999;
+      background: $neutral-disabled;
     }
   }
 }
@@ -252,7 +240,7 @@ input:checked + .slider {
   width: 50%;
   height: 100%;
   border-radius: inherit;
-  background: $color-accent;
+  background: $brand-primary;
   transition: width $transition-fast;
 }
 
@@ -263,15 +251,15 @@ input:checked + .slider {
   width: 18px;
   height: 18px;
   cursor: pointer;
-  border: 2px solid #fff;
+  border: 2px solid $text-on-accent;
   border-radius: 50%;
-  background: $color-accent;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  background: $brand-primary;
+  box-shadow: 0 2px 4px rgba($bg-app, 0.5);
   transform: translate(-50%, -50%);
   transition: left $transition-fast, box-shadow $transition-fast;
 
   &:hover {
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 3px 6px rgba($bg-app, 0.65);
   }
 }
 
@@ -280,3 +268,4 @@ input[type="range"].hidden-slider {
   width: 100px;
   height: 6px;
 }
+

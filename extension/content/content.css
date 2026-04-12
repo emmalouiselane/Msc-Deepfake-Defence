@@ -7,8 +7,8 @@
 }
 
 .deepfake-extension-root {
-  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: #2c2430;
+  font-family: "Manrope", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: #e7f4eb;
 }
 
 .deepfake-extension-root button,
@@ -24,44 +24,12 @@
 
 @keyframes deepfake-highlight {
   0% {
-    box-shadow: 0 0 0 0 rgba(77, 99, 216, 0.7);
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(77, 99, 216, 0);
+    box-shadow: 0 0 0 10px rgba(52, 211, 153, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(77, 99, 216, 0);
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
   }
-}
-.deepfake-analyzed {
-  animation: deepfake-highlight 2s ease-in-out;
-  border-radius: 4px;
-}
-
-.deepfake-risk-overlay {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1000;
-  box-sizing: border-box;
-  padding: 4px 8px;
-  border-radius: 4px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.8);
-  font-size: 12px;
-  font-weight: 600;
-  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-}
-
-.risk-low {
-  background: rgba(47, 155, 87, 0.92);
-}
-
-.risk-medium {
-  background: rgba(214, 160, 24, 0.92);
-  color: #2c2430;
-}
-
-.risk-high {
-  background: rgba(212, 79, 92, 0.92);
 }

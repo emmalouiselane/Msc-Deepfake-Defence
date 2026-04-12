@@ -13,7 +13,7 @@ body {
 
 body {
   line-height: 1.5;
-  background: #201f20;
+  background: $bg-app;
 }
 
 [hidden] {
@@ -25,7 +25,7 @@ body {
   height: 100vh;
   max-height: 100vh;
   overflow: hidden;
-  background: linear-gradient(180deg, #f7f3fa 0%, #fdfbfd 100%);
+  background: $gradient-app-shell;
 }
 
 .sidebar {
@@ -33,26 +33,26 @@ body {
   flex-direction: column;
   width: 215px;
   padding: 10px;
-  background: #f4eef8;
-  border-right: 1px solid rgba($color-accent, 0.08);
+  background: $surface-panel;
+  border-right: 1px solid rgba($brand-primary, 0.08);
 }
 
 .sidebar-nav {
   padding: 10px 8px;
-  background: rgba(#fff, 0.5);
+  background: rgba($bg-surface-alt, 0.72);
   border-radius: 18px;
 }
 
 .nav-section {
   margin-top: 18px;
   padding-top: 18px;
-  border-top: 1px solid $color-border;
+  border-top: 1px solid $border-subtle;
 }
 
 .nav-section-title {
   margin: 0 0 10px;
   padding: 0 14px;
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 12px;
   font-weight: 600;
 }
@@ -74,12 +74,12 @@ body {
   cursor: pointer;
 
   &:hover {
-    background: rgba($color-accent, 0.08);
+    background: rgba($brand-primary, 0.08);
   }
 
   &.active {
-    color: $color-accent-strong;
-    background: #e7d9f6;
+    color: $brand-strong;
+    background: rgba($brand-primary, 0.18);
   }
 
   span {
@@ -128,7 +128,7 @@ body {
   gap: 10px;
   margin-bottom: 8px;
   padding: 10px 12px;
-  background: rgba(#fff, 0.72);
+  background: $surface-muted;
   border-radius: 14px;
 }
 
@@ -136,14 +136,14 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: $color-success;
+  background: $state-success;
 
   &.inactive {
-    background: $color-danger;
+    background: $state-danger;
   }
 
   &.processing {
-    background: $color-warning;
+    background: $state-warning;
     animation: pulse 1.6s infinite;
   }
 }
@@ -177,8 +177,8 @@ body {
 
 .header-shell {
   overflow: hidden;
-  background: rgba(#fff, 0.82);
-  border: 1px solid rgba($color-accent, 0.08);
+  background: $surface-glass;
+  border: 1px solid rgba($brand-primary, 0.08);
   border-radius: 20px;
   box-shadow: $shadow-md;
 }
@@ -189,7 +189,7 @@ body {
   justify-content: space-between;
   gap: 16px;
   padding: 18px 20px 14px;
-  background: linear-gradient(180deg, rgba(#f0eef1, 0.95) 0%, rgba(#ece8ee, 0.92) 100%);
+  background: $gradient-surface;
 }
 
 .header-title-wrap {
@@ -201,7 +201,7 @@ body {
 
   h2 {
     margin: 4px 0 0;
-    color: $color-text-muted;
+    color: $text-secondary;
     font-size: 13px;
     font-weight: 500;
   }
@@ -213,12 +213,12 @@ body {
 
 .page-context {
   padding: 10px 20px;
-  background: #f0eaf4;
-  border-top: 1px solid rgba($color-accent, 0.06);
+  background: rgba($surface-accent-subtle, 0.55);
+  border-top: 1px solid rgba($brand-primary, 0.06);
 }
 
 .context-label {
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -256,7 +256,6 @@ body {
 .stat-card,
 .insight-card,
 .analysis-panel,
-.compact-chart-panel,
 .feedback-panel,
 .upload-container,
 .settings-shell,
@@ -265,7 +264,7 @@ body {
 .history-row,
 .empty-state-card {
   @include card;
-  background: rgba(#fff, 0.88);
+  background: $surface-panel;
 }
 
 .stat-card {
@@ -283,7 +282,7 @@ body {
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  background: #efe5f8;
+  background: rgba($brand-primary, 0.18);
   font-size: 22px;
 }
 
@@ -293,7 +292,7 @@ body {
 }
 
 .stat-label {
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 13px;
 }
 
@@ -331,8 +330,8 @@ body {
   flex-direction: column;
   gap: 8px;
   padding: 14px;
-  background: rgba(#f8f3fb, 0.92);
-  border: 1px solid rgba($color-accent, 0.08);
+  background: rgba($bg-surface-alt, 0.9);
+  border: 1px solid rgba($brand-primary, 0.08);
   border-radius: 14px;
 }
 
@@ -342,7 +341,7 @@ body {
 }
 
 .activity-label {
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 13px;
 }
 
@@ -354,7 +353,7 @@ body {
   margin-top: auto;
   align-self: flex-start;
   padding: 0;
-  color: $color-accent;
+  color: $brand-primary;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -363,24 +362,24 @@ body {
 }
 
 .activity-high {
-  box-shadow: inset 0 0 0 1px rgba($color-danger, 0.15);
+  box-shadow: inset 0 0 0 1px rgba($state-danger, 0.15);
 }
 
 .activity-medium {
-  box-shadow: inset 0 0 0 1px rgba($color-warning, 0.15);
+  box-shadow: inset 0 0 0 1px rgba($state-warning, 0.15);
 }
 
 .activity-low {
-  box-shadow: inset 0 0 0 1px rgba($color-success, 0.15);
+  box-shadow: inset 0 0 0 1px rgba($state-success, 0.15);
 }
 
 .recent-cta {
   min-height: 100%;
   padding: 18px;
-  color: #fff;
+  color: $text-on-accent;
   font-weight: 700;
   cursor: pointer;
-  background: $color-accent;
+  background: $brand-primary;
   border: 0;
   border-radius: 14px;
 }
@@ -401,12 +400,11 @@ body {
 
 .insight-card p {
   margin: 12px 0 0;
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 13px;
 }
 
 .mini-chart,
-.confidence-graph,
 .trend-chart {
   display: flex;
   align-items: flex-end;
@@ -419,12 +417,12 @@ body {
   flex: 1;
   min-width: 10px;
   height: var(--segment-height);
-  background: linear-gradient(180deg, #c8b0f1 0%, #6a145f 100%);
+  background: linear-gradient(180deg, rgba($brand-primary, 0.95) 0%, rgba($brand-strong, 0.95) 100%);
   opacity: 0.92;
 }
 
 .chart-wave-segment:nth-child(odd) {
-  background: linear-gradient(180deg, #efc3f4 0%, #8457c5 100%);
+  background: linear-gradient(180deg, rgba($state-info, 0.9) 0%, rgba($brand-primary, 0.86) 100%);
 }
 
 .risk-pill-row {
@@ -449,24 +447,24 @@ body {
 }
 
 .risk-pill-low {
-  color: #1c6d3d;
-  background: rgba($color-success, 0.12);
+  color: $state-success;
+  background: rgba($state-success, 0.12);
 }
 
 .risk-pill-medium {
-  color: #9a6500;
-  background: rgba($color-warning, 0.18);
+  color: $state-warning;
+  background: rgba($state-warning, 0.18);
 }
 
 .risk-pill-high {
-  color: #a42c46;
-  background: rgba($color-danger, 0.13);
+  color: $state-danger;
+  background: rgba($state-danger, 0.13);
 }
 
 .route-list {
   margin: 0;
   padding-left: 18px;
-  color: $color-text-muted;
+  color: $text-secondary;
 }
 
 .media-analysis-layout {
@@ -486,7 +484,7 @@ body {
   @include card;
   min-height: 420px;
   padding: 18px;
-  background: rgba(#fff, 0.86);
+  background: $surface-panel;
   border-radius: 18px;
 }
 
@@ -500,9 +498,9 @@ body {
   height: 100%;
   min-height: 380px;
   text-align: center;
-  border: 2px dashed rgba($color-accent, 0.28);
+  border: 2px dashed rgba($brand-primary, 0.28);
   border-radius: 18px;
-  background: linear-gradient(180deg, rgba(#f2e8fb, 0.9) 0%, rgba(#f9f3ff, 0.92) 100%);
+  background: $gradient-surface;
 }
 
 .analysis-preview-card {
@@ -518,7 +516,7 @@ body {
   flex: 1;
   min-height: 260px;
   padding: 14px;
-  background: rgba(#fff, 0.68);
+  background: rgba($bg-surface-alt, 0.88);
   border-radius: 16px;
 }
 
@@ -545,10 +543,10 @@ body {
   height: 96px;
   margin-bottom: 16px;
   border-radius: 50%;
-  color: $color-accent;
+  color: $brand-primary;
   font-size: 28px;
   font-weight: 700;
-  background: rgba(#fff, 0.88);
+  background: $surface-panel;
 }
 
 .placeholder-symbol svg {
@@ -566,13 +564,13 @@ body {
   margin-bottom: 16px;
   padding: 8px 12px;
   border-radius: 999px;
-  color: $color-text-muted;
-  background: rgba(#fff, 0.88);
+  color: $text-secondary;
+  background: $surface-panel;
 }
 
 .analysis-caption {
   max-width: 320px;
-  color: $color-text-muted;
+  color: $text-secondary;
 }
 
 .analysis-controls {
@@ -589,8 +587,8 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  background: rgba(#fff, 0.88);
-  border: 1px solid $color-border;
+  background: $surface-panel;
+  border: 1px solid $border-subtle;
   border-radius: 50%;
 }
 
@@ -620,7 +618,7 @@ body {
 .summary-label {
   display: block;
   margin-bottom: 6px;
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -633,7 +631,7 @@ body {
 
 .summary-block p {
   margin: 0;
-  color: $color-text;
+  color: $text-primary;
 }
 
 .breakdown-list {
@@ -643,7 +641,7 @@ body {
 
 .feedback-panel p {
   margin: 0 0 14px;
-  color: $color-text-muted;
+  color: $text-secondary;
 }
 
 .feedback-actions {
@@ -662,8 +660,8 @@ body {
 
 .analysis-history-row {
   padding: 12px 14px;
-  background: rgba(#f8f3fb, 0.92);
-  border: 1px solid rgba($color-accent, 0.08);
+  background: rgba($bg-surface-alt, 0.9);
+  border: 1px solid rgba($brand-primary, 0.08);
   border-radius: 14px;
 }
 
@@ -703,17 +701,17 @@ body {
 .analysis-history-badge {
   padding: 4px 9px;
   border-radius: 999px;
-  color: $color-accent;
+  color: $brand-primary;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: rgba($color-accent, 0.1);
+  background: rgba($brand-primary, 0.1);
 }
 
 .analysis-history-time,
 .analysis-history-stats {
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 12px;
 }
 
@@ -730,8 +728,8 @@ body {
   input {
     width: 100%;
     padding: 12px 40px 12px 14px;
-    background: rgba(#f2ecf6, 0.95);
-    border: 1px solid rgba($color-accent, 0.08);
+    background: rgba($bg-surface-alt, 0.95);
+    border: 1px solid rgba($brand-primary, 0.08);
     border-radius: 999px;
   }
 }
@@ -742,15 +740,15 @@ body {
   right: 14px;
   width: 16px;
   height: 16px;
-  color: $color-text-muted;
+  color: $text-secondary;
   transform: translateY(-50%);
 }
 
 .history-select {
   min-width: 140px;
   padding: 10px 12px;
-  background: rgba(#fff, 0.9);
-  border: 1px solid $color-border;
+  background: rgba($bg-surface-alt, 0.92);
+  border: 1px solid $border-subtle;
   border-radius: 12px;
 }
 
@@ -779,12 +777,12 @@ body {
 .history-meta,
 .history-source,
 .reanalyse-meta {
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 13px;
 }
 
 .history-model {
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 13px;
 }
 
@@ -802,7 +800,7 @@ body {
 }
 
 .history-more {
-  color: $color-accent;
+  color: $brand-primary;
   font-weight: 700;
   cursor: pointer;
   background: none;
@@ -819,14 +817,14 @@ body {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 
   strong {
-    color: $color-text;
+    color: $text-primary;
     font-size: 13px;
     letter-spacing: 0;
   }
@@ -844,7 +842,7 @@ body {
   min-width: 8px;
   height: var(--segment-height);
   background:
-    linear-gradient(180deg, rgba(#d8caef, 0.88) 0%, rgba(#f2ecf7, 0.48) 100%);
+    linear-gradient(180deg, rgba($surface-accent-tint, 0.75) 0%, rgba($bg-surface-alt, 0.42) 100%);
   opacity: 0.65;
   transform-origin: bottom;
   transition: opacity 0.18s ease, transform 0.18s ease;
@@ -853,7 +851,7 @@ body {
 .confidence-spark-bar.is-filled,
 .confidence-spark-bar.is-partial {
   background:
-    linear-gradient(180deg, rgba(#c8b0f1, 1) 0%, rgba(#6a145f, 0.98) 100%);
+    linear-gradient(180deg, rgba($brand-primary, 1) 0%, rgba($brand-strong, 0.98) 100%);
   opacity: 1;
 }
 
@@ -912,16 +910,16 @@ body {
   place-items: center;
   min-height: 84px;
   padding: 14px;
-  color: $color-text-muted;
+  color: $text-secondary;
   font-size: 13px;
   text-align: center;
-  background: rgba(#fff, 0.6);
-  border: 1px dashed rgba($color-accent, 0.18);
+  background: rgba($bg-surface-alt, 0.7);
+  border: 1px dashed rgba($brand-primary, 0.18);
   border-radius: 14px;
 }
 
 .trend-label {
-  color: $color-text-muted;
+  color: $text-secondary;
 }
 
 .distribution-list {
@@ -940,13 +938,13 @@ body {
 .distribution-bar {
   overflow: hidden;
   height: 18px;
-  background: rgba($color-accent, 0.08);
+  background: rgba($brand-primary, 0.08);
   border-radius: 999px;
 
   div {
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #b696ef 0%, #6a145f 100%);
+    background: linear-gradient(90deg, $state-info 0%, $brand-strong 100%);
   }
 }
 
@@ -960,14 +958,14 @@ body {
   padding: 54px 28px;
   text-align: center;
   cursor: pointer;
-  border: 2px dashed rgba($color-accent, 0.28);
+  border: 2px dashed rgba($brand-primary, 0.28);
   border-radius: 20px;
-  background: linear-gradient(180deg, rgba(#f5ecfd, 0.95) 0%, rgba(#fbf8fe, 0.98) 100%);
+  background: $gradient-surface;
 
   &:hover,
   &.dragover {
-    background: rgba(#f0e1ff, 0.92);
-    border-color: rgba($color-accent, 0.5);
+    background: rgba($surface-accent-tint, 0.9);
+    border-color: rgba($brand-primary, 0.5);
   }
 
   h2 {
@@ -976,7 +974,7 @@ body {
 
   p {
     margin: 0 0 8px;
-    color: $color-text-muted;
+    color: $text-secondary;
   }
 }
 
@@ -991,21 +989,22 @@ body {
 }
 
 .btn-primary {
-  color: #fff;
-  background: linear-gradient(180deg, #7a56bf 0%, $color-accent 100%);
+  color: $text-on-accent;
+  background: $brand-primary;
 
   &:hover {
-    background: linear-gradient(180deg, #6d44b8 0%, $color-accent-strong 100%);
+    background: $brand-strong;
   }
 }
 
 .btn-secondary {
-  color: $color-accent;
-  background: rgba(#fff, 0.92);
-  border-color: rgba($color-accent, 0.14);
+  color: $text-on-accent;
+  background: $surface-accent-subtle;
+  border-color: rgba($brand-primary, 0.4);
 
   &:hover {
-    background: rgba(#f5ecff, 0.98);
+    background: $surface-accent-soft;
+    border-color: rgba($brand-primary, 0.55);
   }
 }
 
@@ -1047,8 +1046,8 @@ body {
   display: inline-flex;
   align-items: center;
   padding: 10px 16px;
-  background: rgba(#fff, 0.9);
-  border: 1px solid $color-border;
+  background: rgba($bg-surface-alt, 0.92);
+  border: 1px solid $border-subtle;
   border-radius: 12px;
   cursor: pointer;
 
@@ -1057,22 +1056,22 @@ body {
   }
 
   &:has(input:checked) {
-    border-color: rgba($color-accent, 0.35);
-    background: rgba(#f2e5fb, 0.9);
+    border-color: rgba($brand-primary, 0.35);
+    background: rgba($surface-accent-tint, 0.84);
   }
 }
 
 .model-select {
   min-width: 180px;
   padding: 10px 12px;
-  background: rgba(#fff, 0.96);
-  border: 1px solid $color-border;
+  background: $surface-elevated;
+  border: 1px solid $border-subtle;
   border-radius: 12px;
 }
 
 .model-help {
   margin: 0;
-  color: $color-text-muted;
+  color: $text-secondary;
 }
 
 .custom-slider {
@@ -1080,7 +1079,7 @@ body {
   flex: 1;
   height: 10px;
   cursor: pointer;
-  background: rgba(#d9c9ee, 0.72);
+  background: rgba($surface-accent-muted, 0.45);
   border-radius: 999px;
 }
 
@@ -1090,7 +1089,7 @@ body {
   left: 0;
   width: 50%;
   height: 100%;
-  background: linear-gradient(90deg, #7b58c5 0%, $color-accent 100%);
+  background: linear-gradient(90deg, $state-info 0%, $brand-primary 100%);
   border-radius: inherit;
 }
 
@@ -1100,8 +1099,8 @@ body {
   left: 50%;
   width: 18px;
   height: 18px;
-  background: #fff;
-  border: 3px solid #8e65d1;
+  background: $text-on-accent;
+  border: 3px solid $brand-primary;
   border-radius: 50%;
   transform: translate(-50%, -50%);
 }
@@ -1121,21 +1120,21 @@ body {
   top: 22px;
   right: 22px;
   padding: 12px 16px;
-  color: #fff;
+  color: $text-on-accent;
   z-index: 20;
-  background: $color-accent;
+  background: $brand-primary;
   border-radius: 12px;
   box-shadow: $shadow-lg;
 }
 
 .floating-toast-error {
-  background: $color-danger;
+  background: $state-danger;
 }
 
 .empty-state-card {
   padding: 22px;
   border-radius: 14px;
-  color: $color-text-muted;
+  color: $text-secondary;
 }
 
 @media (max-width: 1080px) {
@@ -1176,3 +1175,5 @@ body {
     align-items: flex-start;
   }
 }
+
+
