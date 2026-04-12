@@ -5,6 +5,7 @@ import { AnalyticsPage } from './components/analytics-page.js';
 import { UploadPage } from './components/upload-page.js';
 import { ReanalysePage } from './components/reanalyse-page.js';
 import { SettingsPage } from './components/settings-page.js';
+import { getContentAreaMarkup } from './components/page-markup/index.js';
 
 class FullAnalysisPlatform {
     static MEDIA_DB_NAME = 'deepfake-media-store';
@@ -78,6 +79,7 @@ class FullAnalysisPlatform {
             settings: new SettingsPage(this)
         };
 
+        this.initialisePageMarkup();
         this.initialiseElements();
         this.attachEventListeners();
         this.requestedAnalysisId = this.getRequestedAnalysisId();
@@ -162,6 +164,15 @@ class FullAnalysisPlatform {
         this.anonymousAnalytics = document.getElementById('anonymousAnalytics');
         this.saveSettingsBtn = document.getElementById('saveSettingsBtn');
         this.resetSettingsBtn = document.getElementById('resetSettingsBtn');
+    }
+
+    initialisePageMarkup() {
+        const contentArea = document.querySelector('.content-area');
+        if (!contentArea) {
+            return;
+        }
+
+        contentArea.innerHTML = getContentAreaMarkup();
     }
 
     attachEventListeners() {
