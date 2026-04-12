@@ -439,22 +439,124 @@ body {
 .mini-chart,
 .trend-chart {
   display: flex;
+  height: 84px;
   align-items: flex-end;
   gap: 6px;
   min-height: 84px;
 }
 
+.mini-chart-empty {
+  width: 100%;
+  color: #94b19f;
+  font-size: 12px;
+  text-align: center;
+  align-self: center;
+}
+
+.chart-insight {
+  margin-top: 10px;
+  color: #94b19f;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chart-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid rgba(31, 138, 70, 0.3);
+  border-radius: 999px;
+  color: #94b19f;
+  font-size: 11px;
+  line-height: 1;
+  background: rgba(19, 33, 24, 0.7);
+}
+.chart-key strong {
+  color: #e7f4eb;
+  font-weight: 700;
+}
+
 .chart-wave-segment,
 .chart-bar-segment {
   flex: 1;
+  display: block;
+  position: relative;
   min-width: 10px;
   height: var(--segment-height);
+  border-radius: 4px 4px 2px 2px;
   background: linear-gradient(180deg, rgba(31, 138, 70, 0.95) 0%, rgba(22, 163, 74, 0.95) 100%);
-  opacity: 0.92;
+  cursor: help;
+}
+.chart-wave-segment::after,
+.chart-bar-segment::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  min-width: max-content;
+  max-width: 180px;
+  padding: 6px 8px;
+  border: 1px solid rgba(31, 138, 70, 0.34);
+  border-radius: 8px;
+  color: #e7f4eb;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(15, 27, 20, 0.96);
+  box-shadow: 0 1px 3px rgba(3, 13, 9, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-in-out;
+  z-index: 3;
+}
+.chart-wave-segment::before,
+.chart-bar-segment::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 4px);
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid rgba(31, 138, 70, 0.34);
+  border-bottom: 1px solid rgba(31, 138, 70, 0.34);
+  background: rgba(15, 27, 20, 0.96);
+  transform: translateX(-50%) rotate(45deg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-in-out;
+  z-index: 2;
+}
+.chart-wave-segment:hover::after, .chart-wave-segment:hover::before, .chart-wave-segment:focus-visible::after, .chart-wave-segment:focus-visible::before,
+.chart-bar-segment:hover::after,
+.chart-bar-segment:hover::before,
+.chart-bar-segment:focus-visible::after,
+.chart-bar-segment:focus-visible::before {
+  opacity: 1;
 }
 
 .chart-wave-segment:nth-child(odd) {
   background: linear-gradient(180deg, rgba(52, 211, 153, 0.9) 0%, rgba(31, 138, 70, 0.86) 100%);
+}
+
+#confidenceChart .chart-bar-segment:nth-child(1) {
+  background: rgba(248, 113, 113, 0.5);
+}
+
+#confidenceChart .chart-bar-segment:nth-child(2) {
+  background: rgba(251, 191, 36, 0.5);
+}
+
+#confidenceChart .chart-bar-segment:nth-child(3) {
+  background: rgba(74, 222, 128, 0.5);
 }
 
 .risk-pill-row {

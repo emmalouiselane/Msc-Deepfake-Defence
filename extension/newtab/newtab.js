@@ -91,6 +91,10 @@ class FullAnalysisPlatform {
         this.recentActivityGrid = document.getElementById('recentActivityGrid');
         this.flagRateChart = document.getElementById('flagRateChart');
         this.confidenceChart = document.getElementById('confidenceChart');
+        this.flagRateInsight = document.getElementById('flagRateInsight');
+        this.confidenceInsight = document.getElementById('confidenceInsight');
+        this.flagRateLegend = document.getElementById('flagRateLegend');
+        this.confidenceLegend = document.getElementById('confidenceLegend');
         this.riskBreakdown = document.getElementById('riskBreakdown');
 
         this.historyList = document.getElementById('historyList');
@@ -360,14 +364,14 @@ class FullAnalysisPlatform {
 
     getRiskLevel(score) {
         if (score < 33) {
-            return { label: 'Authentic', class: 'low' };
+            return { label: '- Likely Authentic', class: 'low' };
         }
 
         if (score < 66) {
-            return { label: 'Review', class: 'medium' };
+            return { label: '- Unsure', class: 'medium' };
         }
 
-        return { label: 'Synthetic', class: 'high' };
+        return { label: '- Likely Synthetic', class: 'high' };
     }
 
     getCurrentAnalysis() {
@@ -484,10 +488,80 @@ class FullAnalysisPlatform {
     }
 
     renderDashboard() {
+        const recent = this.analysisHistory.slice(0, 12);
+        const flagRateSeries = this.getFlagRateSeries(recent);
+        const confidenceDistributionSeries = this.getConfidenceDistributionSeries(recent);
         this.renderRecentActivity();
-        this.renderMiniChart(this.flagRateChart, this.analysisHistory.slice(0, 12).map((item) => item.riskScore || 0), 'wave');
-        this.renderMiniChart(this.confidenceChart, this.analysisHistory.slice(0, 12).map((item) => item.confidence || 0), 'bars');
+        this.renderMiniChart(
+            this.flagRateChart,
+            flagRateSeries.length > 0
+                ? flagRateSeries
+                : recent.map((item) => ((Number(item.riskScore) || 0) >= 66 ? 100 : 0)),
+            'wave',
+            {
+                emptyMessage: 'No analysis history yet.',
+                valueLabelPrefix: 'Running flag rate'
+            }
+        );
+        this.renderMiniChart(
+            this.confidenceChart,
+            confidenceDistributionSeries.length > 0
+                ? confidenceDistributionSeries
+                : recent.map((item) => this.normalisePercent(item.confidence)),
+            'bars',
+            {
+                emptyMessage: 'No analysis history yet.',
+                segmentLabels: ['Low confidence', 'Medium confidence', 'High confidence'],
+                valueLabelPrefix: 'Confidence share'
+            }
+        );
+        this.renderChartInsights(recent, flagRateSeries, confidenceDistributionSeries);
         this.renderRiskBreakdown();
+    }
+
+    renderChartInsights(recentItems, flagRateSeries, confidenceDistributionSeries) {
+        if (this.flagRateLegend) {
+            this.flagRateLegend.innerHTML = '';
+        }
+
+        if (this.flagRateInsight) {
+            if (!recentItems.length || !flagRateSeries.length) {
+                this.flagRateInsight.textContent = 'No analysis history yet.';
+            } else {
+                const flaggedCount = recentItems.filter((item) => (Number(item.riskScore) || 0) >= 66).length;
+                const latestRate = flagRateSeries[flagRateSeries.length - 1] || 0;
+                this.flagRateInsight.textContent = `${flaggedCount} of ${recentItems.length} recent items were flagged (${latestRate}%).`;
+                if (this.flagRateLegend) {
+                    this.flagRateLegend.innerHTML = `
+                        <span class="chart-key"><strong>${latestRate}%</strong> current</span>
+                        <span class="chart-key"><strong>${recentItems.length}</strong> samples</span>
+                    `;
+                }
+            }
+        }
+
+        if (this.confidenceLegend) {
+            this.confidenceLegend.innerHTML = '';
+        }
+
+        if (this.confidenceInsight) {
+            if (!recentItems.length || !confidenceDistributionSeries.length) {
+                this.confidenceInsight.textContent = 'No analysis history yet.';
+            } else {
+                const [low, medium, high] = confidenceDistributionSeries;
+                const dominantBand = high >= medium && high >= low
+                    ? 'High'
+                    : (medium >= low ? 'Medium' : 'Low');
+                this.confidenceInsight.textContent = `Most recent analyses skew ${dominantBand.toLowerCase()} confidence.`;
+                if (this.confidenceLegend) {
+                    this.confidenceLegend.innerHTML = `
+                        <span class="chart-key"><strong>${low}%</strong> low</span>
+                        <span class="chart-key"><strong>${medium}%</strong> medium</span>
+                        <span class="chart-key"><strong>${high}%</strong> high</span>
+                    `;
+                }
+            }
+        }
     }
 
     renderRecentActivity() {
@@ -531,20 +605,72 @@ class FullAnalysisPlatform {
         this.recentActivityGrid.appendChild(cta);
     }
 
-    renderMiniChart(target, values, variant) {
+    renderMiniChart(target, values, variant, options = {}) {
         if (!target) {
             return;
         }
 
         target.innerHTML = '';
-        const data = values.length > 0 ? values : [20, 35, 50, 45, 60, 72];
+        const data = Array.isArray(values) ? values : [];
+        if (data.length === 0) {
+            if (options.emptyMessage) {
+                target.innerHTML = `<span class="mini-chart-empty">${options.emptyMessage}</span>`;
+            }
+            return;
+        }
 
-        data.forEach((value) => {
+        data.forEach((value, index) => {
             const bar = document.createElement('span');
+            const normalisedValue = this.normalisePercent(value);
+            const segmentLabel = Array.isArray(options.segmentLabels) ? options.segmentLabels[index] : null;
+            const valueLabelPrefix = options.valueLabelPrefix || 'Value';
+            const tooltipText = `${segmentLabel || valueLabelPrefix}: ${normalisedValue}%`;
             bar.className = variant === 'wave' ? 'chart-wave-segment' : 'chart-bar-segment';
-            bar.style.setProperty('--segment-height', `${Math.max(16, Math.round(value))}%`);
+            bar.style.setProperty('--segment-height', `${Math.max(16, normalisedValue)}%`);
+            bar.setAttribute('aria-label', tooltipText);
+            bar.setAttribute('data-tooltip', tooltipText);
+            bar.title = tooltipText;
+            bar.tabIndex = 0;
             target.appendChild(bar);
         });
+    }
+
+    getFlagRateSeries(items = []) {
+        if (!Array.isArray(items) || items.length === 0) {
+            return [];
+        }
+
+        const chronological = [...items].reverse();
+        let flaggedCount = 0;
+
+        return chronological.map((item, index) => {
+            if ((Number(item.riskScore) || 0) >= 66) {
+                flaggedCount += 1;
+            }
+
+            const runningRate = (flaggedCount / (index + 1)) * 100;
+            return this.normalisePercent(runningRate);
+        });
+    }
+
+    getConfidenceDistributionSeries(items = []) {
+        if (!Array.isArray(items) || items.length === 0) {
+            return [];
+        }
+
+        const total = Math.max(items.length, 1);
+        const lowConfidence = items.filter((item) => (Number(item.confidence) || 0) < 50).length;
+        const mediumConfidence = items.filter((item) => {
+            const confidence = Number(item.confidence) || 0;
+            return confidence >= 50 && confidence < 75;
+        }).length;
+        const highConfidence = items.filter((item) => (Number(item.confidence) || 0) >= 75).length;
+
+        return [
+            this.normalisePercent((lowConfidence / total) * 100),
+            this.normalisePercent((mediumConfidence / total) * 100),
+            this.normalisePercent((highConfidence / total) * 100)
+        ];
     }
 
     getConfidenceGraphMarkup(confidence, options = {}) {
@@ -742,6 +868,10 @@ class FullAnalysisPlatform {
             const riskLevel = this.getRiskLevel(result.riskScore);
             const sourceContext = this.getSourceContext(result);
             const modelLabel = result.technicalDetails?.model || 'Unknown model';
+            const processingTime = Number(result.processingTime);
+            const speedLabel = Number.isFinite(processingTime) && processingTime >= 0
+                ? `${Math.round(processingTime)}ms`
+                : 'Unknown';
             const row = document.createElement('article');
             row.className = 'history-row';
             row.innerHTML = `
@@ -750,6 +880,7 @@ class FullAnalysisPlatform {
                     <div class="history-score">${Math.round(result.riskScore)}% ${riskLevel.label}</div>
                     <div class="history-source">${sourceContext.label}: ${sourceContext.value}</div>
                     <div class="history-model">Model: ${modelLabel}</div>
+                    <div class="history-model">Speed: ${speedLabel}</div>
                     ${this.getConfidenceGraphMarkup(result.confidence)}
                 </div>
                 <button class="history-more" type="button">More Info</button>
@@ -859,7 +990,7 @@ class FullAnalysisPlatform {
                         <span class="analysis-score">${score}%</span>
                         <div class="analysis-score-ring risk-${riskLevel.class}" style="--ring-progress: ${score};" role="img" aria-label="Risk score ${score}%"></div>
                         
-                        <div class="analysis-caption">${riskLevel.label} signal with ${Math.round(result.confidence)}% confidence</div>
+                        <div class="analysis-caption">${riskLevel.label} with ${Math.round(result.confidence)}% confidence</div>
                     </div>
                 </div>
             `;
@@ -874,7 +1005,7 @@ class FullAnalysisPlatform {
                 <span class="analysis-score">${score}%</span>
                 <div class="analysis-score-ring risk-${riskLevel.class}" style="--ring-progress: ${score};" role="img" aria-label="Risk score ${score}%"></div>
 
-                <div class="analysis-caption">${riskLevel.label} signal with ${Math.round(result.confidence)}% confidence</div>
+                <div class="analysis-caption">${riskLevel.label} with ${Math.round(result.confidence)}% confidence</div>
             </div>
         `;
     }
@@ -899,9 +1030,9 @@ class FullAnalysisPlatform {
         this.renderMiniChart(this.trendChart, this.analysisHistory.slice(0, 18).map((item) => item.riskScore || 0), 'bars');
 
         const total = Math.max(this.analysisHistory.length, 1);
-        const lowConfidence = this.analysisHistory.filter((item) => item.confidence < 75).length;
-        const mediumConfidence = this.analysisHistory.filter((item) => item.confidence >= 75 && item.confidence < 85).length;
-        const highConfidence = this.analysisHistory.filter((item) => item.confidence >= 85).length;
+        const lowConfidence = this.analysisHistory.filter((item) => item.confidence < 50).length;
+        const mediumConfidence = this.analysisHistory.filter((item) => item.confidence >= 50 && item.confidence < 75).length;
+        const highConfidence = this.analysisHistory.filter((item) => item.confidence >= 75).length;
 
         this.distLow.style.width = `${Math.round((lowConfidence / total) * 100)}%`;
         this.distMedium.style.width = `${Math.round((mediumConfidence / total) * 100)}%`;

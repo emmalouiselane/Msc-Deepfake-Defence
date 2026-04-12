@@ -423,22 +423,125 @@ body {
 .mini-chart,
 .trend-chart {
   display: flex;
+  height: 84px;
   align-items: flex-end;
   gap: 6px;
   min-height: 84px;
 }
 
+.mini-chart-empty {
+  width: 100%;
+  color: $text-secondary;
+  font-size: 12px;
+  text-align: center;
+  align-self: center;
+}
+
+.chart-insight {
+  margin-top: 10px;
+  color: $text-secondary;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chart-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid rgba($brand-primary, 0.3);
+  border-radius: 999px;
+  color: $text-secondary;
+  font-size: 11px;
+  line-height: 1;
+  background: rgba($bg-surface-alt, 0.7);
+
+  strong {
+    color: $text-primary;
+    font-weight: 700;
+  }
+}
+
 .chart-wave-segment,
 .chart-bar-segment {
   flex: 1;
+  display: block;
+  position: relative;
   min-width: 10px;
   height: var(--segment-height);
+  border-radius: 4px 4px 2px 2px;
   background: linear-gradient(180deg, rgba($brand-primary, 0.95) 0%, rgba($brand-strong, 0.95) 100%);
-  opacity: 0.92;
+  cursor: help;
+
+  &::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 10px);
+    transform: translateX(-50%);
+    min-width: max-content;
+    max-width: 180px;
+    padding: 6px 8px;
+    border: 1px solid rgba($brand-primary, 0.34);
+    border-radius: 8px;
+    color: $text-primary;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    background: rgba($bg-surface, 0.96);
+    box-shadow: $shadow-sm;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease-in-out;
+    z-index: 3;
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 4px);
+    width: 8px;
+    height: 8px;
+    border-right: 1px solid rgba($brand-primary, 0.34);
+    border-bottom: 1px solid rgba($brand-primary, 0.34);
+    background: rgba($bg-surface, 0.96);
+    transform: translateX(-50%) rotate(45deg);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 120ms ease-in-out;
+    z-index: 2;
+  }
+
+  &:hover::after,
+  &:hover::before,
+  &:focus-visible::after,
+  &:focus-visible::before {
+    opacity: 1;
+  }
 }
 
 .chart-wave-segment:nth-child(odd) {
   background: linear-gradient(180deg, rgba($state-info, 0.9) 0%, rgba($brand-primary, 0.86) 100%);
+}
+
+#confidenceChart .chart-bar-segment:nth-child(1) {
+  background: rgba(248, 113, 113, 0.5);
+}
+
+#confidenceChart .chart-bar-segment:nth-child(2) {
+  background: rgba(251, 191, 36, 0.5);
+}
+
+#confidenceChart .chart-bar-segment:nth-child(3) {
+  background: rgba(74, 222, 128, 0.5);
 }
 
 .risk-pill-row {
