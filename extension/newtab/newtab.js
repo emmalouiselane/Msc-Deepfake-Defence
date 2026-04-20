@@ -7,7 +7,7 @@ import { ReanalysePage } from './components/reanalyse-page.js';
 import { SettingsPage } from './components/settings-page.js';
 import { getContentAreaMarkup } from './components/page-markup/index.js';
 
-import { capturePostHogEvent, initPostHog, setPostHogConsent } from '../posthog.js';
+import { capturePostHogError, capturePostHogEvent, initPostHog, setPostHogConsent } from '../posthog.js';
 import { initSentry } from '../sentry.js';
 
 class FullAnalysisPlatform {
@@ -36,7 +36,7 @@ class FullAnalysisPlatform {
             detectionMode: 'manual',
             modelKey: 'mesonet',
             detailLevel: 50,
-            anonymousAnalytics: true
+            anonymousAnalytics: false
         };
         this.pageHeaders = {
             dashboard: {
@@ -275,7 +275,9 @@ class FullAnalysisPlatform {
         this.currentPage = pageName;
         this.updatePageHeader(pageName);
         this.renderPage(pageName);
-        capturePostHogEvent('newtab_page_viewed', { page: pageName });
+        capturePostHogEvent('newtab_tab_viewed', {
+            newtab_tab: pageName
+        });
     }
 
     renderPage(pageName) {
@@ -376,11 +378,28 @@ class FullAnalysisPlatform {
             file_count: validFiles.length,
             contains_video: validFiles.some((file) => file.type.startsWith('video/'))
         });
+        const batchStartedAt = performance.now();
+        let successCount = 0;
+        let failureCount = 0;
         this.updateStatus('processing', 'Processing files...');
 
         for (const file of validFiles) {
-            await this.analyseFile(file);
+            const success = await this.analyseFile(file);
+            if (success) {
+                successCount += 1;
+            } else {
+                failureCount += 1;
+            }
         }
+
+        capturePostHogEvent('analysis_batch_completed', {
+            flow: 'upload',
+            file_count: validFiles.length,
+            success_count: successCount,
+            failure_count: failureCount,
+            duration_ms: Math.round(performance.now() - batchStartedAt),
+            model_key: this.settings.modelKey
+        });
 
         this.updateStatistics();
         this.currentAnalysisIndex = 0;
@@ -393,9 +412,21 @@ class FullAnalysisPlatform {
         try {
             const analysisResult = await this.runUploadAnalysis(file);
             this.analysisHistory.unshift(analysisResult);
+            this.captureAnalysisCompletedEvent(analysisResult, {
+                flow: 'upload',
+                filename: file.name,
+                mime_type: file.type
+            });
+            return true;
         } catch (error) {
             console.error('Analysis error:', error);
+            this.captureAnalysisFailedEvent(error, {
+                flow: 'upload',
+                filename: file.name,
+                mime_type: file.type
+            });
             this.showError(`Failed to analyse ${file.name}`);
+            return false;
         }
     }
 
@@ -504,16 +535,53 @@ class FullAnalysisPlatform {
                 this.currentAnalysisIndex = index;
             }
 
+            this.captureAnalysisCompletedEvent(updatedResult, {
+                flow: 'reanalyse',
+                source_type: target.sourceType || 'unknown'
+            });
+
             this.updateStatistics();
             this.saveData();
             this.renderAll();
             this.navigateToPage('media-analysis');
         } catch (error) {
             console.error('Re-analysis error:', error);
+            this.captureAnalysisFailedEvent(error, {
+                flow: 'reanalyse',
+                source_type: target?.sourceType || 'unknown'
+            });
             this.showError(error.message || 'Re-analysis failed.');
         } finally {
             this.updateDetectorAvailabilityStatus();
         }
+    }
+
+    captureAnalysisCompletedEvent(result, details = {}) {
+        if (!result) {
+            return;
+        }
+
+        capturePostHogEvent('analysis_completed', {
+            flow: details.flow || 'unknown',
+            source_type: result.sourceType || details.source_type || 'unknown',
+            model: result.technicalDetails?.model || 'unknown',
+            model_key: this.settings.modelKey,
+            processing_time_ms: Number(result.processingTime) || 0,
+            confidence: Number(result.confidence) || 0,
+            risk_score: Number(result.riskScore) || 0,
+            filename: details.filename || result.filename || '',
+            mime_type: details.mime_type || result.type || result.originalType || ''
+        });
+    }
+
+    captureAnalysisFailedEvent(error, details = {}) {
+        capturePostHogError('analysis_failed', error, {
+            flow: details.flow || 'unknown',
+            source_type: details.source_type || 'unknown',
+            model_key: this.settings.modelKey,
+            filename: details.filename || '',
+            mime_type: details.mime_type || ''
+        }, { immediate: true, preferBeacon: true });
     }
 
     updateStatistics() {
@@ -1231,7 +1299,7 @@ class FullAnalysisPlatform {
             detailLevel: this.settings.detailLevel,
             anonymousAnalytics: this.settings.anonymousAnalytics
         });
-        setPostHogConsent(this.settings.anonymousAnalytics);
+        setPostHogConsent(this.settings.anonymousAnalytics, { source: 'user' });
         capturePostHogEvent('newtab_settings_saved', {
             detection_enabled: this.settings.detectionEnabled,
             sensitivity: this.settings.sensitivity,
@@ -1306,9 +1374,9 @@ class FullAnalysisPlatform {
                     detectionMode: 'manual',
                     modelKey: result.modelKey === 'lightweight' ? 'lightweight' : 'mesonet',
                     detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 50,
-                    anonymousAnalytics: typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : true
+                    anonymousAnalytics: typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : false
                 };
-                setPostHogConsent(this.settings.anonymousAnalytics);
+                setPostHogConsent(this.settings.anonymousAnalytics, { source: 'load' });
 
                 if (this.analysisHistory.length > 0 && !this.applyRequestedAnalysisSelection()) {
                     this.currentAnalysisIndex = 0;

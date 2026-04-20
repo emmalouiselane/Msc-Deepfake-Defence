@@ -247,7 +247,7 @@ class BackgroundService {
             detectionMode: 'manual',
             modelKey: 'mesonet',
             detailLevel: 50,
-            anonymousAnalytics: true
+            anonymousAnalytics: false
         };
     }
 

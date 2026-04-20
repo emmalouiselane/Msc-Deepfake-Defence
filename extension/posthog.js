@@ -1,5 +1,6 @@
 const POSTHOG_PROJECT_API_KEY = 'phc_hDENoPr4V0Ic2hdeeMd48j62Y9s98h0U7ALbBWveiHy';
 const POSTHOG_API_HOST = 'https://eu.i.posthog.com';
+const POSTHOG_SDK_MODULE_PATH = './node_modules/posthog-js/dist/module.no-external.js';
 
 const DISTINCT_ID_STORAGE_KEY = 'posthogDistinctId';
 const SESSION_ID_STORAGE_KEY = 'posthogSessionId';
@@ -8,7 +9,7 @@ const FLUSH_INTERVAL_MS = 10000;
 const MAX_QUEUE_SIZE = 200;
 const MAX_RETRY_COUNT = 3;
 
-let analyticsEnabled = true;
+let analyticsEnabled = false;
 let posthogContext = 'extension';
 let distinctIdPromise = null;
 let sessionIdPromise = null;
@@ -17,6 +18,9 @@ let flushTimer = null;
 let flushInFlight = false;
 let consentListenerAttached = false;
 let lifecycleListenersAttached = false;
+let sdkInitAttempted = false;
+let sdkClient = null;
+let lastKnownConsent = false;
 
 function getExtensionVersion() {
   try {
@@ -45,10 +49,11 @@ function getNowIso() {
 async function loadAnonymousAnalyticsSetting() {
   try {
     const result = await chrome.storage.local.get(['anonymousAnalytics']);
-    analyticsEnabled = typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : true;
+    analyticsEnabled = typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : false;
   } catch (_error) {
-    analyticsEnabled = true;
+    analyticsEnabled = false;
   }
+  lastKnownConsent = analyticsEnabled;
 }
 
 async function getDistinctId() {
@@ -136,7 +141,7 @@ function attachConsentListener() {
       return;
     }
 
-    analyticsEnabled = Boolean(changes.anonymousAnalytics.newValue);
+    setPostHogConsent(Boolean(changes.anonymousAnalytics.newValue), { source: 'user' });
   });
 
   consentListenerAttached = true;
@@ -236,6 +241,52 @@ function withDefaults(properties = {}) {
   };
 }
 
+async function initPostHogSdk(distinctId, sessionId) {
+  if (sdkInitAttempted || !POSTHOG_PROJECT_API_KEY) {
+    return;
+  }
+
+  sdkInitAttempted = true;
+
+  try {
+    const module = await import(POSTHOG_SDK_MODULE_PATH);
+    const client = module?.default || module;
+    if (!client || typeof client.init !== 'function') {
+      return;
+    }
+
+    client.init(POSTHOG_PROJECT_API_KEY, {
+      api_host: POSTHOG_API_HOST,
+      persistence: 'localStorage',
+      opt_out_capturing_by_default: true,
+      autocapture: false,
+      capture_pageview: false,
+      disable_session_recording: false,
+      session_recording: {
+        maskAllInputs: true,
+        maskInputOptions: {
+          password: true
+        }
+      }
+    });
+
+    sdkClient = client;
+    sdkClient.register(
+      withDefaults({
+        distinct_id: distinctId,
+        session_id: sessionId,
+        $session_id: sessionId
+      })
+    );
+
+    if (!analyticsEnabled && typeof sdkClient.opt_out_capturing === 'function') {
+      sdkClient.opt_out_capturing();
+    }
+  } catch (_error) {
+    // Fall back to custom capture transport if SDK cannot be loaded.
+  }
+}
+
 export async function flushPostHogQueue(options = {}) {
   if (!POSTHOG_PROJECT_API_KEY || !analyticsEnabled || flushInFlight) {
     return;
@@ -293,12 +344,31 @@ export async function initPostHog(context) {
   await loadAnonymousAnalyticsSetting();
   attachConsentListener();
   attachLifecycleListeners();
-  await Promise.all([getDistinctId(), getSessionId(), loadQueue()]);
+  const [distinctId, sessionId] = await Promise.all([getDistinctId(), getSessionId(), loadQueue()]);
+  await initPostHogSdk(distinctId, sessionId);
   scheduleFlush(1500);
 }
 
-export function setPostHogConsent(enabled) {
-  analyticsEnabled = Boolean(enabled);
+export function setPostHogConsent(enabled, options = {}) {
+  const nextConsent = Boolean(enabled);
+  const previousConsent = lastKnownConsent;
+
+  analyticsEnabled = nextConsent;
+  lastKnownConsent = nextConsent;
+
+  if (sdkClient && typeof sdkClient.opt_in_capturing === 'function' && typeof sdkClient.opt_out_capturing === 'function') {
+    if (!nextConsent) {
+      sdkClient.opt_out_capturing();
+    } else if (!previousConsent && options.source === 'user') {
+      const alreadyOptedIn = typeof sdkClient.has_opted_in_capturing === 'function'
+        ? sdkClient.has_opted_in_capturing()
+        : false;
+      if (!alreadyOptedIn) {
+        sdkClient.opt_in_capturing();
+      }
+    }
+  }
+
   if (analyticsEnabled) {
     scheduleFlush(500);
   }
@@ -311,15 +381,28 @@ export function capturePostHogEvent(eventName, properties = {}, options = {}) {
 
   void (async () => {
     const [distinctId, sessionId] = await Promise.all([getDistinctId(), getSessionId()]);
+    const enrichedProperties = withDefaults({
+      ...properties,
+      distinct_id: distinctId,
+      session_id: sessionId,
+      $session_id: sessionId,
+      client_timestamp: getNowIso()
+    });
+
+    await initPostHogSdk(distinctId, sessionId);
+
+    if (sdkClient && typeof sdkClient.capture === 'function') {
+      try {
+        sdkClient.capture(eventName, enrichedProperties);
+        return;
+      } catch (_error) {
+        // If SDK capture fails, fall through to queued transport.
+      }
+    }
+
     const envelope = {
       event: eventName,
-      properties: withDefaults({
-        ...properties,
-        distinct_id: distinctId,
-        session_id: sessionId,
-        $session_id: sessionId,
-        client_timestamp: getNowIso()
-      }),
+      properties: enrichedProperties,
       retry_count: 0
     };
 
