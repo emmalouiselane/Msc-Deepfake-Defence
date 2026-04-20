@@ -1,4 +1,5 @@
 import { initSentry } from '../sentry.js';
+import { capturePostHogEvent, initPostHog } from '../posthog.js';
 
 // Deepfake Detection Extension - Popup Script
 class DeepfakeDetector {
@@ -8,6 +9,7 @@ class DeepfakeDetector {
         this.draggingSlider = false;
 
         initSentry('popup');
+        void initPostHog('popup');
 
         this.initialiseElements();
         this.attachEventListeners();
@@ -111,6 +113,7 @@ class DeepfakeDetector {
         this.setSliderState(isEnabled);
         this.setDetectionModeState(isEnabled);
         this.updateStatus(isEnabled);
+        capturePostHogEvent('popup_detection_toggled', { enabled: isEnabled });
         await this.sendMessageWithRetry('toggleDetection', { enabled: isEnabled });
     }
 
@@ -127,6 +130,7 @@ class DeepfakeDetector {
         this.automaticMode.checked = false;
         await chrome.storage.local.set({ detectionMode: mode });
         this.updateStatus(this.btnToggle.checked);
+        capturePostHogEvent('popup_detection_mode_changed', { mode });
         await this.sendMessageWithRetry('updateDetectionMode', { mode });
     }
 
@@ -209,6 +213,7 @@ class DeepfakeDetector {
     }
 
     openNewTab(page = 'dashboard') {
+        capturePostHogEvent('popup_open_newtab', { page });
         const url = chrome.runtime.getURL(`newtab/newtab.html?page=${encodeURIComponent(page)}`);
         chrome.tabs.create({ url });
     }
@@ -240,4 +245,5 @@ class DeepfakeDetector {
 document.addEventListener('DOMContentLoaded', async () => {
     const detector = new DeepfakeDetector();
     await detector.loadSettings();
+    capturePostHogEvent('popup_opened');
 });

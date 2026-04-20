@@ -65,6 +65,6 @@
   ],
   
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' blob: https://ichef.bbci.co.uk https://*.bbc.co.uk https://*.bbci.co.uk https://cdn.syndication.twimg.com https://connect.facebook.net https://platform.twitter.com https://public.flourish.studio https://static.chartbeat.com https://www.google-analytics.com https://www.tiktok.com https://lf16-tiktok-web.ttwstatic.com https://www.ons.gov.uk https://bitesize.files.bbci.co.uk https://emp.bbci.co.uk https://mybbc-analytics.files.bbci.co.uk https://news.files.bbci.co.uk https://static.bbc.co.uk https://static2.chartbeat.com https://*.cdninstagram.com https://*.instagram.com https://o4511248127950848.ingest.de.sentry.io"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src 'self' blob: https://ichef.bbci.co.uk https://*.bbc.co.uk https://*.bbci.co.uk https://cdn.syndication.twimg.com https://connect.facebook.net https://platform.twitter.com https://public.flourish.studio https://static.chartbeat.com https://www.google-analytics.com https://www.tiktok.com https://lf16-tiktok-web.ttwstatic.com https://www.ons.gov.uk https://bitesize.files.bbci.co.uk https://emp.bbci.co.uk https://mybbc-analytics.files.bbci.co.uk https://news.files.bbci.co.uk https://static.bbc.co.uk https://static2.chartbeat.com https://*.cdninstagram.com https://*.instagram.com https://o4511248127950848.ingest.de.sentry.io https://us.i.posthog.com https://eu.i.posthog.com"
   }
 }

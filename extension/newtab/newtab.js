@@ -7,6 +7,7 @@ import { ReanalysePage } from './components/reanalyse-page.js';
 import { SettingsPage } from './components/settings-page.js';
 import { getContentAreaMarkup } from './components/page-markup/index.js';
 
+import { capturePostHogEvent, initPostHog, setPostHogConsent } from '../posthog.js';
 import { initSentry } from '../sentry.js';
 
 class FullAnalysisPlatform {
@@ -82,6 +83,7 @@ class FullAnalysisPlatform {
         };
 
         initSentry('newtab');
+        void initPostHog('newtab');
 
         this.initialisePageMarkup();
         this.initialiseElements();
@@ -273,6 +275,7 @@ class FullAnalysisPlatform {
         this.currentPage = pageName;
         this.updatePageHeader(pageName);
         this.renderPage(pageName);
+        capturePostHogEvent('newtab_page_viewed', { page: pageName });
     }
 
     renderPage(pageName) {
@@ -369,6 +372,10 @@ class FullAnalysisPlatform {
             return;
         }
 
+        capturePostHogEvent('newtab_upload_batch_started', {
+            file_count: validFiles.length,
+            contains_video: validFiles.some((file) => file.type.startsWith('video/'))
+        });
         this.updateStatus('processing', 'Processing files...');
 
         for (const file of validFiles) {
@@ -1224,6 +1231,14 @@ class FullAnalysisPlatform {
             detailLevel: this.settings.detailLevel,
             anonymousAnalytics: this.settings.anonymousAnalytics
         });
+        setPostHogConsent(this.settings.anonymousAnalytics);
+        capturePostHogEvent('newtab_settings_saved', {
+            detection_enabled: this.settings.detectionEnabled,
+            sensitivity: this.settings.sensitivity,
+            model_key: this.settings.modelKey,
+            detail_level: this.settings.detailLevel,
+            anonymous_analytics: this.settings.anonymousAnalytics
+        });
         this.showToast('Settings saved');
     }
 
@@ -1232,6 +1247,7 @@ class FullAnalysisPlatform {
             return;
         }
 
+        capturePostHogEvent('newtab_results_cleared');
         this.clearMediaPreviews().catch((error) => {
             console.warn('Deepfake Detection: Failed to clear IndexedDB previews.', error);
         });
@@ -1249,6 +1265,7 @@ class FullAnalysisPlatform {
             return;
         }
 
+        capturePostHogEvent('newtab_results_exported', { result_count: this.analysisHistory.length });
         const exportData = {
             timestamp: new Date().toISOString(),
             statistics: this.statistics,
@@ -1291,6 +1308,7 @@ class FullAnalysisPlatform {
                     detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 50,
                     anonymousAnalytics: typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : true
                 };
+                setPostHogConsent(this.settings.anonymousAnalytics);
 
                 if (this.analysisHistory.length > 0 && !this.applyRequestedAnalysisSelection()) {
                     this.currentAnalysisIndex = 0;
