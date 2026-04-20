@@ -2,183 +2,205 @@
 
 ## Overview
 
-A comprehensive Chrome extension for detecting deepfake media with on-device processing using ONNX Runtime Web. Features both popup and new tab interfaces for flexible usage.
+A Chrome Manifest V3 extension for deepfake-risk analysis with on-device ONNX inference, a quick popup control surface, and a full new-tab dashboard for deeper workflows.
+
+The extension is designed for research and prototyping, with local-first analysis and optional telemetry for reliability and product insight.
 
 ## Extension Structure
 
-```
+```text
 extension/
-├── manifest.json              # Extension configuration
-├── popup/                   # Popup interface
-│   ├── popup.html            # Popup HTML
-│   ├── popup.css             # Popup styles
-│   └── popup.js             # Popup functionality
-├── newtab/                  # New tab interface
-│   ├── newtab.html          # Full analysis page
-│   ├── newtab.css           # New tab styles
-│   └── newtab.js            # New tab functionality
-├── background/               # Background service worker
-│   └── background.js        # Service worker logic
-├── content/                 # Content scripts
-│   ├── content.js           # Page interaction script
-│   └── content.css          # Content styles
-└── icons/                   # Extension icons
-    ├── icon16.png
-    ├── icon32.png
-    ├── icon48.png
-    └── icon128.png
+|-- manifest.json              # Extension configuration
+|-- popup/                     # Popup interface
+|   |-- popup.html
+|   |-- popup.css
+|   `-- popup.js
+|-- newtab/                    # Full analysis interface
+|   |-- newtab.html
+|   |-- newtab.css
+|   |-- newtab.js
+|   `-- components/
+|-- background/                # MV3 service worker
+|   `-- background.js
+|-- content/                   # Content script integration
+|   |-- content.js
+|   `-- content.css
+|-- models/                    # ONNX models and data files
+|-- dist/                      # Runtime assets copied/bundled for inference
+|-- sentry.js                  # Sentry integration (custom fetch transport)
+|-- posthog.js                 # PostHog integration (queued custom transport)
+|-- vite.config.js
+`-- icons/
 ```
 
 ## Features
 
 ### Popup Interface
-- **Drag & Drop Upload**: Simple file upload interface
-- **Real-time Analysis**: Immediate feedback with processing status
-- **Risk Scoring**: Low/Medium/High risk classification
-- **Confidence Meter**: Visual confidence indicator
-- **Technical Details**: Model information and processing metrics
-- **Privacy First**: All processing happens locally
+- Detection enable/disable toggle
+- Sensitivity adjustment
+- Detection mode UI (manual currently enforced in popup flow)
+- Quick navigation to full analysis pages in new tab
+- Telemetry test trigger (via DevTools helper)
 
 ### New Tab Interface
-- **Batch Analysis**: Multiple file upload support
-- **Statistics Dashboard**: Analysis history and metrics
-- **Model Information**: Technical details about detection model
-- **Export Functionality**: JSON export of analysis results
-- **Responsive Design**: Optimized for various screen sizes
+- Dashboard and analytics views
+- Upload flow for image/video analysis and batch processing
+- Analysis history and result browsing
+- Re-analysis flow for existing results
+- Export functionality (JSON)
+- Settings management including `anonymousAnalytics`
+
+### Background Service Worker
+- ONNX runtime/model orchestration
+- Media analysis request handling
+- Model selection and initialization logic
+- History/statistics persistence coordination
 
 ### Content Script Integration
-- **Floating Button**: Quick access on pages with media
-- **Media Detection**: Automatic identification of images and videos
-- **In-page Analysis**: Analyze media without leaving current page
-- **Result Notifications**: Non-intrusive result display
+- In-page media discovery and interaction support
+- Messaging bridge to background and UI surfaces
 
 ## Technical Implementation
 
-### Security & Privacy
-- **Local Processing**: No data sent to external servers
-- **Minimal Permissions**: Only essential permissions requested
-- **Content Security Policy**: Strict CSP for security
-- **Encrypted Storage**: Chrome storage API with encryption
+### Core Stack
+- Chrome Extension Manifest V3
+- JavaScript (ES modules)
+- ONNX Runtime Web + ONNX model artifacts
+- Vite build pipeline
 
-### Model Integration
-- **ONNX Runtime Web**: Efficient browser-based inference
-- **MesoNet Architecture**: 28,009 parameters, 0.1MB model size
-- **PyTorch Compatibility**: Exported from PyTorch 2.11
-- **Performance**: <100ms inference time per image
+### Runtime Architecture
+- `background/background.js` is the central inference and orchestration layer.
+- `popup/popup.js` is optimized for quick controls and status.
+- `newtab/newtab.js` provides the full operational interface.
+- Shared telemetry helpers (`sentry.js`, `posthog.js`) are imported by popup/newtab.
 
-### Browser Compatibility
-- **Chrome Manifest v3**: Latest extension standards
-- **Modern JavaScript**: ES6+ features
-- **Responsive Design**: Works across device sizes
-- **WebAssembly**: Optimized performance with WASM
+## Telemetry and Observability
+
+### Included Integrations
+- Sentry error tracking
+- PostHog product analytics
+
+### Consent and Privacy Control
+- Telemetry is gated by `anonymousAnalytics` in extension settings/storage.
+- If disabled, PostHog capture is suppressed.
+
+### Network Destinations
+- Sentry ingest endpoint (from configured DSN host)
+- PostHog ingest endpoint (`https://eu.i.posthog.com`)
+
+These are explicitly allowed in `manifest.json` CSP `connect-src`.
+
+## Telemetry Test Harness
+
+Use the popup harness to simulate a problem expected in both systems.
+
+### Trigger
+Open popup DevTools and run:
+
+```js
+window.__simulateTelemetryIssue()
+```
+
+### Expected Results
+- PostHog event: `simulated_problem_triggered`
+- Sentry error issue with message: `Simulated telemetry issue from popup`
+
+### Troubleshooting
+- Confirm `anonymousAnalytics` is enabled.
+- Run from popup DevTools (not webpage DevTools).
+- Reload extension in `chrome://extensions` and retry.
 
 ## Installation
 
 ### Development Setup
-1. Clone the repository
-2. Navigate to `chrome://extensions/`
-3. Enable "Developer mode"
-4. Click "Load unpacked"
-5. Select the `extension` directory
+1. Clone repository
+2. Open `chrome://extensions/`
+3. Enable **Developer mode**
+4. Click **Load unpacked**
+5. Select the `extension/` directory
 
-### Production Build
-1. Minify CSS and JavaScript files
-2. Optimize images and icons
-3. Update version in manifest.json
-4. Package as ZIP file for Chrome Web Store
+### Local Build Workflow
+
+```bash
+cd extension
+npm install
+npm run build
+```
+
+Build uses Vite and updates extension assets, including runtime/bundled files in `dist/`.
 
 ## Configuration
 
-### Settings
-- **Auto Analysis**: Toggle automatic media detection
-- **Confidence Threshold**: Minimum confidence for alerts (70% default)
-- **Notifications**: Enable/disable result notifications
-- **Model Version**: Select detection model version
+### User-Facing Settings (Current)
+- Detection enabled/disabled
+- Sensitivity
+- Model selection (`mesonet` or `lightweight`, where exposed in UI)
+- Detail level
+- Anonymous analytics preference
 
-### Storage
-- **Analysis History**: Local storage of past analyses
-- **Statistics**: Aggregated metrics and insights
-- **Settings**: User preferences and configuration
-- **Temporary Data**: Cached analysis results
+### Stored Data
+- Analysis history
+- Aggregated statistics
+- Settings/preferences
+- IndexedDB media preview records (for some analysis flows)
 
-## Development
+## Security and Privacy
 
-### File Structure
-- **manifest.json**: Extension configuration and permissions
-- **popup/**: Quick analysis interface (380x500px)
-- **newtab/**: Full analysis dashboard
-- **background/**: Service worker for background tasks
-- **content/**: Page interaction and media detection
-
-### Key Components
-- **DeepfakeDetector**: Main popup class
-- **FullAnalysisPlatform**: New tab management
-- **BackgroundService**: Service worker coordination
-- **ContentScript**: Page integration and media analysis
-
-### Mock Implementation
-Current implementation uses simulated results for demonstration. Real integration requires:
-- ONNX model files in `models/` directory
-- ONNX Runtime Web library integration
-- Actual inference pipeline implementation
-
-## Security Considerations
+### Current Behavior
+- Core media analysis is local/on-device.
+- Extension data is stored via Chrome extension storage and IndexedDB.
+- Optional telemetry sends event/error metadata to configured PostHog/Sentry endpoints.
 
 ### Permissions
-- `storage`: For saving analysis results and settings
-- `activeTab`: For current page interaction
-- `host_permissions`: For content script injection
+- `activeTab`
+- `storage`
+- `scripting`
+- Host permissions for content-script/media workflows
 
-### Content Security Policy
-- Strict CSP for extension pages
-- Limited external resource loading
-- No inline scripts or styles
+### CSP
+- Uses strict extension-page CSP with explicit `connect-src` allowlist.
 
-### Data Privacy
-- No external API calls
-- Local-only processing
-- Optional data export
-- Clear data functionality
+## Browser Compatibility
+
+- Chrome/Chromium (primary target, MV3)
+- Edge (Chromium-based) expected compatible
+- Firefox/Safari require separate adaptation
+
+## Performance Notes
+
+### Practical Targets
+- Responsive popup interactions
+- Fast local analysis pipeline for supported media
+- Stable background worker lifecycle and model reuse
+
+### Optimization Patterns in Project
+- Background worker centralizes model session management
+- Runtime assets pre-copied for inference environment
+- UI flows avoid blocking where possible
+
+## Development Notes
+
+### Key Classes/Modules
+- `DeepfakeDetector` (popup)
+- `FullAnalysisPlatform` (new tab)
+- `BackgroundService` (service worker)
+
+### Build and Runtime
+- Source files are ES modules.
+- Extension should be reloaded in `chrome://extensions` after code changes.
 
 ## Future Enhancements
 
-### Model Improvements
-- Real ONNX model integration
-- Multiple model support
-- Model versioning system
-- Performance optimization
+### Model and Analysis
+- Broader model support and version controls
+- Additional calibration and explainability outputs
+- Improved video-specific workflows
 
-### Feature Additions
-- Video frame extraction
-- Batch processing optimization
-- Advanced filtering options
-- Integration with research tools
+### Product and UX
+- Expanded analytics dashboards
+- Better filtering/searching in history
+- Accessibility and keyboard navigation improvements
 
-### User Experience
-- Dark mode support
-- Keyboard shortcuts
-- Custom themes
-- Accessibility improvements
-
-## Browser Support
-
-- **Chrome**: Full support (Manifest v3)
-- **Edge**: Compatible (Chromium-based)
-- **Firefox**: Requires adaptation (Manifest v2)
-- **Safari**: Not supported (different extension system)
-
-## Performance Metrics
-
-### Target Specifications
-- **Extension Size**: <5MB total
-- **Memory Usage**: <50MB during analysis
-- **CPU Usage**: <20% during inference
-- **Response Time**: <200ms for UI interactions
-
-### Optimization Techniques
-- Lazy loading of components
-- Efficient DOM manipulation
-- Minimal external dependencies
-- Optimized asset delivery
-
-This extension provides a comprehensive deepfake detection solution while maintaining user privacy and browser performance standards.
+### Reliability and Ops
+- Additional telemetry dashboards and alerts
+- Stronger end-to-end testing for popup/newtab/background messaging
