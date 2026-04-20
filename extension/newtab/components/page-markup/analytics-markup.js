@@ -44,9 +44,8 @@ export const analyticsPageMarkup = `
                     </div>
                 </div>
                 <div>
-                    <h4>Confidence Trends - TBA</h4>
+                    <h4>Confidence Trends</h4>
                     <div class="confidence-trend-panel">
-                        <span class="trend-label">Confidence Score Over Time</span>
                         <div class="trend-chart" id="confidenceTrendChart"></div>
                     </div>                    
                 </div>

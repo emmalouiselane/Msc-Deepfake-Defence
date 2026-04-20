@@ -146,6 +146,7 @@ class FullAnalysisPlatform {
         this.analyticsFlaggedCount = document.getElementById('analyticsFlaggedCount');
         this.analyticsRiskBreakdown = document.getElementById('analyticsRiskBreakdown');
         this.trendChart = document.getElementById('trendChart');
+        this.confidenceTrendChart = document.getElementById('confidenceTrendChart');
         this.distLow = document.getElementById('distLow');
         this.distMedium = document.getElementById('distMedium');
         this.distHigh = document.getElementById('distHigh');
@@ -1059,6 +1060,9 @@ class FullAnalysisPlatform {
                 this.analyticsRiskBreakdown.innerHTML = '';
             }
             this.trendChart.innerHTML = '<div class="analytics-empty-state">No analysis history yet.</div>';
+            if (this.confidenceTrendChart) {
+                this.confidenceTrendChart.innerHTML = '<div class="analytics-empty-state">No analysis history yet.</div>';
+            }
             this.distLow.style.width = '5%';
             this.distMedium.style.width = '5%';
             this.distHigh.style.width = '5%';
@@ -1102,6 +1106,20 @@ class FullAnalysisPlatform {
         }
 
         this.renderMiniChart(this.trendChart, this.analysisHistory.slice(0, 18).map((item) => item.riskScore || 0), 'bars');
+        if (this.confidenceTrendChart) {
+            const confidenceTrendEntries = this.analysisHistory
+                .slice(0, 18)
+                .reverse();
+            this.renderMiniChart(
+                this.confidenceTrendChart,
+                confidenceTrendEntries.map((item) => item.confidence || 0),
+                'wave',
+                {
+                    segmentLabels: confidenceTrendEntries.map((item) => this.formatTime(item.timestamp)),
+                    valueLabelPrefix: 'Confidence'
+                }
+            );
+        }
         const lowConfidence = this.analysisHistory.filter((item) => item.confidence < 50).length;
         const mediumConfidence = this.analysisHistory.filter((item) => item.confidence >= 50 && item.confidence < 75).length;
         const highConfidence = this.analysisHistory.filter((item) => item.confidence >= 75).length;
