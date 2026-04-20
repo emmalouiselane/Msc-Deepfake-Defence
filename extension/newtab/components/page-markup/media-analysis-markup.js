@@ -45,9 +45,9 @@ export const mediaAnalysisPageMarkup = `
                     <h4>Feedback</h4>
                     <p>Do you agree with this analysis?</p>
                     <div class="feedback-actions">
-                        <button class="btn btn-secondary feedback-btn" type="button">Maybe</button>
-                        <button class="btn btn-secondary feedback-btn" type="button">Yes</button>
-                        <button class="btn btn-secondary feedback-btn" type="button">No</button>
+                        <button class="btn btn-secondary feedback-btn" id="feedbackMaybeBtn" data-feedback-value="maybe" type="button">Maybe</button>
+                        <button class="btn btn-secondary feedback-btn" id="feedbackYesBtn" data-feedback-value="yes" type="button">Yes</button>
+                        <button class="btn btn-secondary feedback-btn" id="feedbackNoBtn" data-feedback-value="no" type="button">No</button>
                     </div>
                 </section>
                 <section class="analysis-panel">

@@ -302,6 +302,7 @@ body {
   &-grid-2 {
     display:grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 28px;
   }
 }
 
@@ -549,10 +550,9 @@ body {
 }
 
 .risk-pill-row {
-  display: flex;
-  flex-wrap: wrap;
   gap: 10px;
-  margin: 26px 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .risk-pill {
@@ -561,7 +561,6 @@ body {
   display: flex;
   flex-direction: column;
   text-align: center;
-  width: 30%;
 
   :first-child {
     font-size: 14px;
@@ -1110,7 +1109,6 @@ body {
 .distribution-list {
   display: grid;
   gap: 14px;
-  max-width: 480px;
 }
 
 .analytics-risk-pill-row {

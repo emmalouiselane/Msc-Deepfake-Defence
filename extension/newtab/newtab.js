@@ -139,6 +139,10 @@ class FullAnalysisPlatform {
         this.prevAnalysisBtn = document.getElementById('prevAnalysisBtn');
         this.analysisReanalyseBtn = document.getElementById('analysisReanalyseBtn');
         this.nextAnalysisBtn = document.getElementById('nextAnalysisBtn');
+        this.feedbackMaybeBtn = document.getElementById('feedbackMaybeBtn');
+        this.feedbackYesBtn = document.getElementById('feedbackYesBtn');
+        this.feedbackNoBtn = document.getElementById('feedbackNoBtn');
+        this.feedbackButtons = [this.feedbackMaybeBtn, this.feedbackYesBtn, this.feedbackNoBtn].filter(Boolean);
 
         this.analyticsAccuracy = document.getElementById('analyticsAccuracy');
         this.analyticsProcessing = document.getElementById('analyticsProcessing');
@@ -205,6 +209,9 @@ class FullAnalysisPlatform {
         this.analysisReanalyseBtn?.addEventListener('click', () => this.reanalyseLatest());
         this.nextAnalysisBtn?.addEventListener('click', () => this.shiftAnalysis(1));
         this.reanalyseLatestBtn?.addEventListener('click', () => this.reanalyseLatest());
+        this.feedbackButtons.forEach((button) => {
+            button.addEventListener('click', () => this.submitAnalysisFeedback(button.dataset.feedbackValue));
+        });
 
         this.customSlider?.addEventListener('click', (event) => this.handleSliderPointer(event, 'sensitivity'));
         this.sensitivitySlider?.addEventListener('input', (event) => this.updateSensitivity(event.target.value));
@@ -936,6 +943,7 @@ class FullAnalysisPlatform {
             this.analysisBreakdown.innerHTML = '<li>Visual: Awaiting data</li><li>Temporal: Awaiting data</li><li>Compression: Awaiting data</li>';
             this.renderMiniChart(this.analysisConfidenceGraph, [], 'bars');
             this.renderAnalysisHistory(null);
+            this.updateFeedbackButtons(null);
             return;
         }
 
@@ -951,6 +959,116 @@ class FullAnalysisPlatform {
         `;
         this.renderMiniChart(this.analysisConfidenceGraph, [current.confidence, current.riskScore, 100 - current.riskScore], 'bars');
         this.renderAnalysisHistory(current);
+        this.updateFeedbackButtons(current);
+    }
+
+    submitAnalysisFeedback(value) {
+        const feedbackValue = String(value || '').toLowerCase();
+        if (!['yes', 'no', 'maybe'].includes(feedbackValue)) {
+            return;
+        }
+
+        const current = this.getCurrentAnalysis();
+        if (!current?.id) {
+            this.showError('No analysis selected for feedback.');
+            return;
+        }
+
+        const currentRunKey = this.getCurrentAnalysisRunKey(current);
+        if (this.hasFeedbackForCurrentRun(current, currentRunKey)) {
+            this.showToast('Feedback already recorded for this analysis run');
+            return;
+        }
+
+        const feedback = {
+            value: feedbackValue,
+            timestamp: new Date().toISOString(),
+            analysisRunKey: currentRunKey,
+            analysisTimestamp: current.timestamp || ''
+        };
+        const feedbackHistoryEntry = {
+            ...feedback,
+            analysisId: String(current.id),
+            mediaPreviewId: current.mediaPreviewId || null
+        };
+
+        const index = this.analysisHistory.findIndex((entry) => String(entry.id) === String(current.id));
+        if (index === -1) {
+            this.showError('Could not link feedback to this analysis item.');
+            return;
+        }
+
+        const existing = this.analysisHistory[index];
+        this.analysisHistory[index] = {
+            ...existing,
+            feedback,
+            feedbackHistory: [...(Array.isArray(existing.feedbackHistory) ? existing.feedbackHistory : []), feedbackHistoryEntry]
+        };
+
+        this.saveData();
+        this.renderMediaAnalysis();
+        this.renderAnalytics();
+
+        capturePostHogEvent('analysis_feedback_submitted', {
+            feedback: feedbackValue,
+            analysis_id: String(current.id),
+            analysis_run_key: currentRunKey,
+            media_preview_id: current.mediaPreviewId || '',
+            filename: current.filename || '',
+            source_type: current.sourceType || 'unknown',
+            model_key: this.settings.modelKey,
+            risk_score: Number(current.riskScore) || 0,
+            confidence: Number(current.confidence) || 0
+        }, { immediate: true, preferBeacon: true });
+
+        this.showToast('Feedback recorded');
+    }
+
+    updateFeedbackButtons(result) {
+        if (!this.feedbackButtons.length) {
+            return;
+        }
+
+        const selected = result?.feedback?.value || '';
+        const currentRunKey = this.getCurrentAnalysisRunKey(result);
+        const alreadyReviewedCurrentRun = this.hasFeedbackForCurrentRun(result, currentRunKey);
+        this.feedbackButtons.forEach((button) => {
+            const matches = button.dataset.feedbackValue === selected;
+            button.classList.toggle('is-selected', matches);
+            button.setAttribute('aria-pressed', matches ? 'true' : 'false');
+            button.disabled = !result || alreadyReviewedCurrentRun;
+        });
+    }
+
+    getCurrentAnalysisRunKey(result) {
+        if (!result) {
+            return '';
+        }
+
+        const runs = this.getAnalysisRuns(result);
+        if (!runs.length) {
+            return String(result.timestamp || result.id || '');
+        }
+
+        const latestRun = runs[0];
+        return String(latestRun.timestamp || result.timestamp || result.id || '');
+    }
+
+    hasFeedbackForCurrentRun(result, runKey = this.getCurrentAnalysisRunKey(result)) {
+        if (!result?.feedback?.value) {
+            return false;
+        }
+
+        const feedbackRunKey = result.feedback.analysisRunKey;
+        if (feedbackRunKey) {
+            return String(feedbackRunKey) === String(runKey);
+        }
+
+        if (result.feedback.analysisTimestamp) {
+            return String(result.feedback.analysisTimestamp) === String(result.timestamp || '');
+        }
+
+        return false;
     }
 
     renderAnalysisHistory(result) {
@@ -1142,9 +1260,14 @@ class FullAnalysisPlatform {
         this.distLow.tabIndex = 0;
         this.distMedium.tabIndex = 0;
         this.distHigh.tabIndex = 0;
-        this.feedbackAgree.textContent = '0%';
-        this.feedbackDisagree.textContent = '0%';
-        this.feedbackUnsure.textContent = '0%';
+        const feedbackTotal = this.analysisHistory.filter((item) => item?.feedback?.value).length;
+        const feedbackAgreeCount = this.analysisHistory.filter((item) => item?.feedback?.value === 'yes').length;
+        const feedbackDisagreeCount = this.analysisHistory.filter((item) => item?.feedback?.value === 'no').length;
+        const feedbackUnsureCount = this.analysisHistory.filter((item) => item?.feedback?.value === 'maybe').length;
+        const feedbackDenominator = Math.max(feedbackTotal, 1);
+        this.feedbackAgree.textContent = `${Math.round((feedbackAgreeCount / feedbackDenominator) * 100)}%`;
+        this.feedbackDisagree.textContent = `${Math.round((feedbackDisagreeCount / feedbackDenominator) * 100)}%`;
+        this.feedbackUnsure.textContent = `${Math.round((feedbackUnsureCount / feedbackDenominator) * 100)}%`;
     }
 
     renderReanalyse() {
