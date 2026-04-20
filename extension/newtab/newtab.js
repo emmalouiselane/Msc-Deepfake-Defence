@@ -7,6 +7,8 @@ import { ReanalysePage } from './components/reanalyse-page.js';
 import { SettingsPage } from './components/settings-page.js';
 import { getContentAreaMarkup } from './components/page-markup/index.js';
 
+import { initSentry } from '../sentry.js';
+
 class FullAnalysisPlatform {
     static MEDIA_DB_NAME = 'deepfake-media-store';
 
@@ -78,6 +80,8 @@ class FullAnalysisPlatform {
             reanalyse: new ReanalysePage(this),
             settings: new SettingsPage(this)
         };
+
+        initSentry('newtab');
 
         this.initialisePageMarkup();
         this.initialiseElements();

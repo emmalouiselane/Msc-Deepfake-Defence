@@ -30,11 +30,15 @@ function compileExtensionStyles() {
 export default defineConfig({
   build: {
     rollupOptions: {
-      input: resolve(__dirname, 'background/background.js'),
+      input: {
+        popup: resolve(__dirname, 'popup/popup.html'),
+        newtab: resolve(__dirname, 'newtab/newtab.html'),
+        background: resolve(__dirname, 'background/background.js'),
+        content: resolve(__dirname, 'content/content.js')
+      },
       output: {
-        entryFileNames: 'background.js',
-        format: 'es',
-        inlineDynamicImports: true
+        entryFileNames: 'assets/[name].js',
+        format: 'es'
       }
     },
     target: 'es2020',

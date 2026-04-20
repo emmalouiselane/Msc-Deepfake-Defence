@@ -1,9 +1,13 @@
+import { initSentry } from '../sentry.js';
+
 // Deepfake Detection Extension - Popup Script
 class DeepfakeDetector {
     constructor() {
         this.isExtensionReady = false;
         this.maxRetries = 3;
         this.draggingSlider = false;
+
+        initSentry('popup');
 
         this.initialiseElements();
         this.attachEventListeners();

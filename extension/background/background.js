@@ -1,4 +1,5 @@
 import * as ort from '../dist/ort.wasm.bundle.min.mjs';
+import { initSentry } from '../sentry.js';
 
 // Deepfake Detection Extension - Background Service Worker
 class BackgroundService {
@@ -41,6 +42,8 @@ class BackgroundService {
         };
         this.selectedModelKey = 'mesonet';
         this.modelInfo = this.modelRegistry[this.selectedModelKey];
+
+        initSentry('background');
 
         this.initialiseEventListeners();
     }
