@@ -1,5 +1,5 @@
-import { initSentry } from '../sentry.js';
-import { capturePostHogEvent, initPostHog } from '../posthog.js';
+import { captureSentryException, initSentry } from '../sentry.js';
+import { capturePostHogError, capturePostHogEvent, flushPostHogQueue, initPostHog } from '../posthog.js';
 
 // Deepfake Detection Extension - Popup Script
 class DeepfakeDetector {
@@ -13,6 +13,7 @@ class DeepfakeDetector {
 
         this.initialiseElements();
         this.attachEventListeners();
+        this.registerTelemetrySimulator();
     }
 
     initialiseElements() {
@@ -75,6 +76,7 @@ class DeepfakeDetector {
     }
 
     async sendMessageWithRetry(action, payload = {}) {
+        const startedAt = performance.now();
         for (let attempt = 1; attempt <= this.maxRetries; attempt += 1) {
             try {
                 const isReady = await this.checkExtensionReady();
@@ -91,11 +93,25 @@ class DeepfakeDetector {
                     throw new Error(response?.error?.message || 'Request failed');
                 }
 
+                capturePostHogEvent('popup_message_succeeded', {
+                    action,
+                    attempt,
+                    duration_ms: Math.round(performance.now() - startedAt)
+                });
                 return response;
             } catch (error) {
                 console.error(`Deepfake Detection: Popup message failed (attempt ${attempt}):`, error);
+                capturePostHogError('popup_message_attempt_failed', error, {
+                    action,
+                    attempt
+                });
                 if (attempt === this.maxRetries) {
                     this.showError('Extension not responding. Reload the extension.');
+                    capturePostHogError('popup_message_failed', error, {
+                        action,
+                        attempts: attempt,
+                        duration_ms: Math.round(performance.now() - startedAt)
+                    }, { immediate: true, preferBeacon: true });
                     return null;
                 }
 
@@ -121,6 +137,7 @@ class DeepfakeDetector {
         const sensitivity = this.normaliseSensitivity(value);
         this.updateSlider(sensitivity);
         await chrome.storage.local.set({ sensitivity });
+        capturePostHogEvent('popup_sensitivity_updated', { sensitivity });
         await this.sendMessageWithRetry('updateSensitivity', { sensitivity });
     }
 
@@ -218,8 +235,28 @@ class DeepfakeDetector {
         chrome.tabs.create({ url });
     }
 
+    registerTelemetrySimulator() {
+        window.__simulateTelemetryIssue = () => {
+            const error = new Error('Simulated telemetry issue from popup');
+
+            capturePostHogError('simulated_problem_triggered', error, {
+                source: 'popup',
+                simulated: true
+            }, { immediate: true, preferBeacon: true });
+            captureSentryException(error, {
+                source: 'popup',
+                simulated: true
+            });
+
+            setTimeout(() => {
+                throw error;
+            }, 0);
+        };
+    }
+
     async loadSettings() {
         try {
+            const startedAt = performance.now();
             const defaults = {
                 detectionEnabled: false,
                 sensitivity: 50,
@@ -235,8 +272,14 @@ class DeepfakeDetector {
             this.setSliderState(this.btnToggle.checked);
             this.setDetectionModeState(this.btnToggle.checked);
             this.updateStatus(this.btnToggle.checked);
+            capturePostHogEvent('popup_settings_loaded', {
+                duration_ms: Math.round(performance.now() - startedAt),
+                detection_enabled: this.btnToggle.checked,
+                sensitivity: this.normaliseSensitivity(settings.sensitivity)
+            });
         } catch (error) {
             console.error('Deepfake Detection: Failed to load settings:', error);
+            capturePostHogError('popup_settings_load_failed', error, {}, { immediate: true, preferBeacon: true });
             this.showError('Could not load settings');
         }
     }
@@ -246,4 +289,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const detector = new DeepfakeDetector();
     await detector.loadSettings();
     capturePostHogEvent('popup_opened');
+});
+
+window.addEventListener('beforeunload', () => {
+    void flushPostHogQueue({ immediate: true, preferBeacon: true });
 });
