@@ -308,6 +308,9 @@ class ContentScript {
     }
 
     showMediaSelector() {
+        const availableMedia = this.findMediaElements();
+        this.mediaElements = availableMedia;
+
         // Create modal overlay
         const overlay = this.markAsExtensionRoot(document.createElement('div'));
         overlay.className = `${ContentScript.ROOT_CLASS} media-selector-overlay`;
@@ -321,8 +324,8 @@ class ContentScript {
                 <button class="media-selector-close">&times;</button>
             </div>
             <div class="media-grid">
-                ${this.mediaElements.map((media, index) => `
-                    <div class="media-item" data-index="${index}">
+                ${availableMedia.map((media, index) => `
+                    <div class="media-item" data-index="${index}" data-src="${media.src}" data-type="${media.type || 'image'}">
                         <img src="${media.src}" class="media-thumbnail" alt="Media ${index + 1}">
                     </div>
                 `).join('')}
@@ -361,8 +364,12 @@ class ContentScript {
         analyseBtn.addEventListener('click', () => {
             const selectedItem = modal.querySelector('.media-item.selected');
             if (selectedItem) {
-                const index = parseInt(selectedItem.dataset.index);
-                const media = this.mediaElements[index];
+                const index = Number.parseInt(selectedItem.dataset.index, 10);
+                const selectedSrc = selectedItem.dataset.src;
+                const selectedType = selectedItem.dataset.type;
+                const media = availableMedia[index]
+                    || this.findMediaElements().find((item) => item.src === selectedSrc && item.type === selectedType)
+                    || this.findMediaElements().find((item) => item.src === selectedSrc);
                 this.analyseMedia(media);
                 overlay.remove();
             }
@@ -464,6 +471,11 @@ class ContentScript {
             // Check if Chrome APIs are available
             if (!this.isExtensionContextAvailable()) {
                 this.handleInvalidatedContext();
+                return;
+            }
+
+            if (!media?.element || !media?.src) {
+                this.showError('The selected media is no longer available. Please reopen the detector and try again.');
                 return;
             }
 
