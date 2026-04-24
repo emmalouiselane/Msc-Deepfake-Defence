@@ -218,7 +218,109 @@
 
 .deepfake-container.deepfake-extension-root {
   position: relative;
-  display: inline-block;
+}
+
+.deepfake-container.deepfake-extension-root.risk-low {
+  box-shadow: inset 0 0 0 3px rgba($state-success, 0.95);
+}
+
+.deepfake-container.deepfake-extension-root.risk-medium {
+  box-shadow: inset 0 0 0 3px rgba($state-warning, 0.95);
+}
+
+.deepfake-container.deepfake-extension-root.risk-high {
+  box-shadow: inset 0 0 0 3px rgba($state-danger, 0.95);
+}
+
+.deepfake-overlay.deepfake-extension-root {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 1000;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  color: $text-on-accent;
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(3, 13, 9, 0.35);
+  backdrop-filter: blur(6px);
+  background: rgba(15, 27, 20, 0.88);
+}
+
+.deepfake-overlay.deepfake-extension-root.low-risk {
+  background: rgba(21, 109, 53, 0.88);
+}
+
+.deepfake-overlay.deepfake-extension-root.medium-risk {
+  background: rgba(161, 98, 7, 0.9);
+}
+
+.deepfake-overlay.deepfake-extension-root.high-risk {
+  background: rgba(153, 27, 27, 0.9);
+}
+
+.deepfake-extension-root .deepfake-overlay-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deepfake-extension-root .deepfake-overlay-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.deepfake-extension-root .deepfake-overlay-content {
+  min-width: 0;
+  flex: 1;
+}
+
+.deepfake-extension-root .deepfake-overlay-text {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.deepfake-extension-root .deepfake-overlay-confidence {
+  margin-top: 2px;
+  font-size: 11px;
+  line-height: 1.2;
+  opacity: 0.92;
+}
+
+.deepfake-extension-root .deepfake-overlay-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.deepfake-extension-root .deepfake-overlay-more {
+  cursor: pointer;
+  color: $text-on-accent;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  transition: background-color $transition-fast, border-color $transition-fast, transform $transition-fast;
+}
+
+.deepfake-extension-root .deepfake-overlay-more {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}
+
+.deepfake-extension-root .deepfake-overlay-more:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
 }
 
 .deepfake-loading-overlay.deepfake-extension-root {

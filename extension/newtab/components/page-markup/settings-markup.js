@@ -46,7 +46,7 @@ export const settingsPageMarkup = `
                         <span class="mode-label">Manual</span>
                     </label>
                     <label class="mode-option">
-                        <input type="radio" name="detectionMode" value="automatic" id="automaticMode" disabled>
+                        <input type="radio" name="detectionMode" value="automatic" id="automaticMode">
                         <span class="mode-label">Automatic</span>
                     </label>
                 </div>

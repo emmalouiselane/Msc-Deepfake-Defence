@@ -9,6 +9,10 @@ class ContentScript {
         this.initialiseElements();
         this.floatingButton = null;
         this.overlays = new Map(); // Store overlay elements
+        this.overlayResults = new WeakMap();
+        this.viewportObserver = null;
+        this.analysedElements = new WeakSet();
+        this.processingElements = new WeakSet();
         this.isEnabled = false;
         this.sensitivity = 50;
         this.detailLevel = 100;
@@ -163,7 +167,7 @@ class ContentScript {
             search: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><path d="m21 21-4.3-4.3"></path></svg>`,
             checkCircle: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m9 12 2 2 4-4"></path></svg>`,
             alertTriangle: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.29 3.86-7.4 12.8A2 2 0 0 0 4.62 20h14.76a2 2 0 0 0 1.73-3.34l-7.4-12.8a2 2 0 0 0-3.42 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>`,
-            shieldAlert: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V6l8-4 8 4z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>`
+            shieldAlert: `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V6l8-4 8 4z"></path><path d="M12 8v4"></path><path d="M12 16h.01"></path></svg>`,
         };
 
         return icons[icon] || icons.alertTriangle;
@@ -220,13 +224,8 @@ class ContentScript {
                 console.warn('Deepfake Detection: Cannot create overlay - element or parent is missing');
                 return;
             }
-            
-            const container = this.markAsExtensionRoot(document.createElement('div'));
-            container.className = `${ContentScript.ROOT_CLASS} deepfake-container`;
-            
-            // Wrap the original element
-            element.parentNode.insertBefore(container, element);
-            container.appendChild(element);
+
+            const container = this.ensureMediaContainer(element);
             
             // Create overlay
             const overlay = this.markAsExtensionRoot(document.createElement('div'));
@@ -234,28 +233,36 @@ class ContentScript {
             
             const riskLevel = this.getRiskLevel(result.riskScore);
             overlay.classList.add(riskLevel.class + '-risk');
+            this.applyContainerRiskState(container, riskLevel.class);
             
             overlay.innerHTML = `
                 <div class="deepfake-overlay-icon">${riskLevel.iconMarkup}</div>
-                <div class="deepfake-overlay-text">${riskLevel.label}</div>
-                <div class="deepfake-overlay-confidence">${result.confidence.toFixed(1)}% confidence</div>
+                <div class="deepfake-overlay-content">
+                    <div class="deepfake-overlay-text">${riskLevel.label}</div>
+                    <div class="deepfake-overlay-confidence">${result.confidence.toFixed(1)}% confidence</div>
+                </div>
+                <div class="deepfake-overlay-actions">
+                    ${result?.id ? '<button type="button" class="deepfake-overlay-more">More info</button>' : ''}
+                </div>
             `;
             
             container.appendChild(overlay);
+            overlay.dataset.mediaSrc = element?.src || result?.mediaUrl || result?.debug?.capture?.mediaUrl || '';
+            overlay.dataset.analysisId = result?.id ? String(result.id) : '';
+
+            const moreInfoButton = overlay.querySelector('.deepfake-overlay-more');
+
+            if (moreInfoButton && result?.id) {
+                moreInfoButton.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    this.openAnalysisDetails(result.id);
+                });
+            }
             
             // Store reference
             this.overlays.set(element, overlay);
-            
-            // Show overlay on hover
-            container.addEventListener('mouseenter', () => {
-                console.log('Deepfake Detection: Showing overlay');
-                overlay.classList.add('visible');
-            });
-            
-            container.addEventListener('mouseleave', () => {
-                console.log('Deepfake Detection: Hiding overlay');
-                overlay.classList.remove('visible');
-            });
+            this.overlayResults.set(element, result);
             
             console.log('Deepfake Detection: Overlay created successfully');
         } catch (error) {
@@ -267,14 +274,10 @@ class ContentScript {
         const overlay = this.overlays.get(element);
         if (overlay) {
             const container = overlay.parentNode;
-            const originalElement = container.querySelector('img, video');
-            
-            if (originalElement && originalElement.parentNode === container) {
-                container.parentNode.insertBefore(originalElement, container);
-            }
-            
-            container.remove();
+            overlay.remove();
             this.overlays.delete(element);
+            this.overlayResults.delete(element);
+            this.teardownMediaContainer(container, element);
         }
     }
 
@@ -292,9 +295,103 @@ class ContentScript {
     }
 
     removeAllOverlays() {
-        this.overlays.forEach((overlay, element) => {
-            this.removeOverlay(element);
+        const containers = document.querySelectorAll(`.deepfake-container.${ContentScript.ROOT_CLASS}`);
+        containers.forEach((container) => {
+            container.querySelectorAll('.deepfake-overlay, .deepfake-loading-overlay, .deepfake-error-overlay').forEach((node) => {
+                node.remove();
+            });
+            const media = container.querySelector('img, video');
+            this.teardownMediaContainer(container, media);
         });
+
+        this.overlays.clear();
+        this.overlayResults = new WeakMap();
+        this.analysedElements = new WeakSet();
+        this.processingElements = new WeakSet();
+    }
+
+    applyContainerRiskState(container, riskClass) {
+        if (!container) {
+            return;
+        }
+
+        container.classList.remove('risk-low', 'risk-medium', 'risk-high');
+        if (riskClass) {
+            container.classList.add(`risk-${riskClass}`);
+        }
+    }
+
+    findMediaByElement(element) {
+        if (!element) {
+            return null;
+        }
+
+        return this.mediaElements.find((media) => media.element === element)
+            || this.findMediaElements().find((media) => media.element === element)
+            || null;
+    }
+
+    findMediaBySource(src) {
+        if (!src) {
+            return null;
+        }
+
+        return this.mediaElements.find((media) => media.src === src)
+            || this.findMediaElements().find((media) => media.src === src)
+            || null;
+    }
+
+    async findStoredResultForMedia(media) {
+        const mediaUrl = media?.src;
+        if (!mediaUrl || typeof chrome === 'undefined' || !chrome.storage?.local?.get) {
+            return null;
+        }
+
+        const result = await chrome.storage.local.get(['analysisHistory']);
+        const history = Array.isArray(result.analysisHistory) ? result.analysisHistory : [];
+        return history.find((entry) => {
+            const candidateUrl = entry?.mediaUrl || entry?.debug?.capture?.mediaUrl || '';
+            return candidateUrl === mediaUrl;
+        }) || null;
+    }
+
+    async findStoredResultById(resultId) {
+        if (!resultId || typeof chrome === 'undefined' || !chrome.storage?.local?.get) {
+            return null;
+        }
+
+        const result = await chrome.storage.local.get(['analysisHistory']);
+        const history = Array.isArray(result.analysisHistory) ? result.analysisHistory : [];
+        return history.find((entry) => String(entry?.id) === String(resultId)) || null;
+    }
+
+    async handleOverlayReanalysis(element, overlay, triggerButton) {
+        const media = this.findMediaByElement(element) || this.findMediaBySource(overlay?.dataset?.mediaSrc || '');
+        const storedById = await this.findStoredResultById(overlay?.dataset?.analysisId || '');
+        const existingResult = storedById || this.overlayResults.get(element) || await this.findStoredResultForMedia(media);
+
+        if (!media) {
+            this.showError('Could not find this image to re-analyse. Try refreshing the page.');
+            return;
+        }
+        if (triggerButton) {
+            triggerButton.disabled = true;
+        }
+
+        this.showStatus('Re-analysing...', 2000);
+
+        try {
+            if (existingResult?.id) {
+                await this.reanalyseOverlayMedia(media, existingResult);
+                return;
+            }
+
+            await this.analyseMediaForOverlay(media, { force: true });
+        } finally {
+            if (triggerButton?.isConnected) {
+                triggerButton.disabled = false;
+            }
+        }
     }
 
     getRiskLevel(score) {
@@ -404,6 +501,21 @@ class ContentScript {
             height: rect.height,
             devicePixelRatio: window.devicePixelRatio || 1
         };
+    }
+
+    isEligibleForAutomaticAnalysis(media) {
+        const bounds = this.getCaptureBounds(media?.element);
+        if (!bounds) {
+            return false;
+        }
+
+        const minWidth = 180;
+        const minHeight = 180;
+        const minArea = 60000;
+
+        return bounds.width >= minWidth
+            && bounds.height >= minHeight
+            && (bounds.width * bounds.height) >= minArea;
     }
 
     async ensureMediaVisible(element) {
@@ -636,6 +748,334 @@ class ContentScript {
         }, 4000);
     }
 
+    showStatus(message, duration = 2000) {
+        const statusDiv = this.markAsExtensionRoot(document.createElement('div'));
+        statusDiv.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 27, 20, 0.96);
+            color: #f4fff7;
+            padding: 12px 20px;
+            border-radius: 999px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 10002;
+            box-shadow: 0 10px 24px rgba(3, 13, 9, 0.35);
+            border: 1px solid rgba(31, 138, 70, 0.35);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+
+        statusDiv.textContent = message;
+        document.body.appendChild(statusDiv);
+
+        setTimeout(() => {
+            statusDiv.remove();
+        }, duration);
+    }
+
+    delay(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    ensureMediaContainer(element) {
+        if (!element?.parentNode) {
+            return null;
+        }
+
+        const existingParent = element.parentNode;
+        if (existingParent.classList?.contains('deepfake-container')) {
+            return existingParent;
+        }
+
+        const adoptedContainer = this.findExistingOverlayHost(element);
+        if (adoptedContainer) {
+            return this.prepareExistingContainer(adoptedContainer);
+        }
+
+        const computedStyle = window.getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        const container = this.markAsExtensionRoot(document.createElement('div'));
+        container.className = `${ContentScript.ROOT_CLASS} deepfake-container`;
+        container.dataset.deepfakeOwnedWrapper = 'true';
+        container.style.display = computedStyle.display === 'block' ? 'block' : 'inline-block';
+        container.style.verticalAlign = computedStyle.verticalAlign || 'baseline';
+
+        if (computedStyle.float && computedStyle.float !== 'none') {
+            container.style.cssFloat = computedStyle.float;
+        }
+
+        if (computedStyle.margin && computedStyle.margin !== '0px') {
+            element.dataset.deepfakeOriginalMargin = element.style.margin || '';
+            container.style.margin = computedStyle.margin;
+            element.style.margin = '0';
+        }
+
+        if (computedStyle.width && computedStyle.width !== 'auto') {
+            container.style.width = computedStyle.width;
+        } else if (rect.width > 0) {
+            container.style.width = `${rect.width}px`;
+        }
+
+        if (computedStyle.maxWidth && computedStyle.maxWidth !== 'none') {
+            container.style.maxWidth = computedStyle.maxWidth;
+        } else {
+            container.style.maxWidth = '100%';
+        }
+
+        existingParent.insertBefore(container, element);
+        container.appendChild(element);
+        return container;
+    }
+
+    findExistingOverlayHost(element) {
+        const elementRect = element.getBoundingClientRect();
+        let candidate = element.parentElement;
+        let depth = 0;
+
+        while (candidate && candidate !== document.body && depth < 4) {
+            if (!candidate.classList?.contains(ContentScript.ROOT_CLASS)) {
+                const style = window.getComputedStyle(candidate);
+                const rect = candidate.getBoundingClientRect();
+                const hasComparableBox = Math.abs(rect.width - elementRect.width) <= 2
+                    && Math.abs(rect.height - elementRect.height) <= 2;
+                const hasAspectRatioLayout = style.paddingBottom !== '0px'
+                    || style.aspectRatio !== 'auto'
+                    || style.position !== 'static';
+
+                if (hasComparableBox && hasAspectRatioLayout) {
+                    return candidate;
+                }
+            }
+
+            candidate = candidate.parentElement;
+            depth += 1;
+        }
+
+        return null;
+    }
+
+    prepareExistingContainer(container) {
+        if (!container.classList.contains('deepfake-container')) {
+            container.classList.add('deepfake-container');
+        }
+
+        this.markAsExtensionRoot(container);
+
+        const currentPosition = container.style.position || '';
+        if (!container.dataset.deepfakeOriginalPosition) {
+            container.dataset.deepfakeOriginalPosition = currentPosition;
+        }
+
+        if (window.getComputedStyle(container).position === 'static') {
+            container.style.position = 'relative';
+        }
+
+        return container;
+    }
+
+    teardownMediaContainer(container, mediaElement = null) {
+        if (!container) {
+            return;
+        }
+
+        this.applyContainerRiskState(container, null);
+
+        if (container.dataset.deepfakeOwnedWrapper === 'true') {
+            const media = mediaElement || container.querySelector('img, video');
+            if (media && container.parentNode) {
+                if (media.dataset.deepfakeOriginalMargin !== undefined) {
+                    media.style.margin = media.dataset.deepfakeOriginalMargin;
+                    delete media.dataset.deepfakeOriginalMargin;
+                }
+                container.parentNode.insertBefore(media, container);
+            }
+            container.remove();
+            return;
+        }
+
+        if (!container.querySelector('.deepfake-overlay, .deepfake-loading-overlay, .deepfake-error-overlay')) {
+            if (container.dataset.deepfakeOriginalPosition !== undefined) {
+                container.style.position = container.dataset.deepfakeOriginalPosition;
+                delete container.dataset.deepfakeOriginalPosition;
+            }
+
+            container.classList.remove('deepfake-container');
+            container.classList.remove(ContentScript.ROOT_CLASS);
+        }
+    }
+
+    setupViewportObserver() {
+        if (this.viewportObserver) {
+            return;
+        }
+
+        this.viewportObserver = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) {
+                    return;
+                }
+
+                const media = this.mediaElements.find((item) => item.element === entry.target);
+                if (!media) {
+                    return;
+                }
+
+                void this.analyseMediaForOverlay(media);
+            });
+        }, {
+            root: null,
+            rootMargin: '120px 0px',
+            threshold: 0.25
+        });
+    }
+
+    stopAutomaticAnalysis() {
+        if (this.viewportObserver) {
+            this.viewportObserver.disconnect();
+            this.viewportObserver = null;
+        }
+    }
+
+    syncAutomaticAnalysisTargets() {
+        if (!this.isEnabled || this.detectionMode !== 'automatic') {
+            return;
+        }
+
+        this.mediaElements = this.findMediaElements();
+        this.setupViewportObserver();
+        this.mediaElements.forEach((media) => {
+            if (media?.element && document.contains(media.element) && this.isEligibleForAutomaticAnalysis(media)) {
+                this.viewportObserver.observe(media.element);
+            }
+        });
+    }
+
+    async analyseMediaForOverlay(media, options = {}) {
+        const element = media?.element;
+        const force = Boolean(options.force);
+        if (!element || !media?.src || !document.contains(element)) {
+            return;
+        }
+
+        if (!force && !this.isEligibleForAutomaticAnalysis(media)) {
+            return;
+        }
+
+        if (!force && (this.processingElements.has(element) || this.analysedElements.has(element) || this.overlays.has(element))) {
+            return;
+        }
+
+        if (force) {
+            this.removeOverlay(element);
+            const container = this.ensureMediaContainer(element);
+            if (container) {
+                container.querySelectorAll('.deepfake-loading-overlay, .deepfake-error-overlay').forEach((node) => node.remove());
+            }
+        }
+
+        this.processingElements.add(element);
+        const loadingOverlay = this.createLoadingOverlay(element);
+
+        try {
+            if (!this.isExtensionContextAvailable()) {
+                this.handleInvalidatedContext();
+                return;
+            }
+
+            const response = await chrome.runtime.sendMessage({
+                action: 'analyzeMedia',
+                data: this.buildAnalysisRequest(media)
+            });
+
+            if (loadingOverlay?.parentNode) {
+                loadingOverlay.remove();
+            }
+
+            if (response?.success) {
+                this.createOverlay(element, response.result);
+            } else {
+                this.createErrorOverlay(element, response?.error?.userMessage || 'Analysis failed');
+            }
+
+            this.analysedElements.add(element);
+        } catch (error) {
+            console.error('Deepfake Detection: Automatic analysis failed:', error);
+            if (loadingOverlay?.parentNode) {
+                loadingOverlay.remove();
+            }
+            this.createErrorOverlay(element, 'Analysis failed. Please try again.');
+            this.analysedElements.add(element);
+        } finally {
+            this.processingElements.delete(element);
+            if (this.viewportObserver && document.contains(element)) {
+                this.viewportObserver.unobserve(element);
+            }
+        }
+    }
+
+    async reanalyseOverlayMedia(media, existingResult) {
+        const element = media?.element;
+        if (!element || !existingResult?.id) {
+            return;
+        }
+
+        if (this.processingElements.has(element)) {
+            return;
+        }
+
+        this.removeOverlay(element);
+        const container = this.ensureMediaContainer(element);
+        if (container) {
+            container.querySelectorAll('.deepfake-loading-overlay, .deepfake-error-overlay').forEach((node) => node.remove());
+        }
+
+        this.processingElements.add(element);
+        const loadingOverlay = this.createLoadingOverlay(element);
+
+        try {
+            if (!this.isExtensionContextAvailable()) {
+                this.handleInvalidatedContext();
+                return;
+            }
+
+            const responsePromise = chrome.runtime.sendMessage({
+                action: 'reanalyzeStoredMedia',
+                data: {
+                    existingResult,
+                    sensitivity: this.sensitivity,
+                    detailLevel: this.detailLevel
+                }
+            });
+            const [response] = await Promise.all([responsePromise, this.delay(2000)]);
+
+            if (loadingOverlay?.parentNode) {
+                loadingOverlay.remove();
+            }
+
+            if (response?.success) {
+                this.createOverlay(element, response.result);
+                this.analysedElements.add(element);
+            } else {
+                this.showError(response?.error?.userMessage || 'Re-analysis failed');
+                this.createErrorOverlay(element, response?.error?.userMessage || 'Re-analysis failed');
+            }
+        } catch (error) {
+            console.error('Deepfake Detection: Overlay re-analysis failed:', error);
+            if (loadingOverlay?.parentNode) {
+                loadingOverlay.remove();
+            }
+            this.showError('Re-analysis failed. Please try again.');
+            this.createErrorOverlay(element, 'Re-analysis failed. Please try again.');
+        } finally {
+            this.processingElements.delete(element);
+            if (this.viewportObserver && document.contains(element)) {
+                this.viewportObserver.unobserve(element);
+            }
+        }
+    }
+
     observeMediaChanges() {
         const observer = new MutationObserver((mutations) => {
             let hasNewMedia = false;
@@ -658,7 +1098,11 @@ class ContentScript {
             
             if (hasNewMedia) {
                 this.mediaElements = this.findMediaElements();
-                
+
+                if (this.isEnabled && this.detectionMode === 'automatic') {
+                    this.syncAutomaticAnalysisTargets();
+                }
+
                 // Only create floating button if detection is enabled AND in manual mode
                 if (this.mediaElements.length > 0 && this.isEnabled && this.detectionMode === 'manual' && !this.floatingButton) {
                     this.createFloatingButton();
@@ -703,32 +1147,50 @@ class ContentScript {
     }
 
     updateDetectionMode(mode) {
-        console.log(`Deepfake Detection: Updating detection mode to ${mode} (automatic analysis temporarily disabled)`);
-        this.detectionMode = 'manual';
-        
-        // Re-apply overlays based on new mode
-        if (this.isEnabled) {
-            this.removeAllOverlays();
+        console.log(`Deepfake Detection: Updating detection mode to ${mode}`);
+        this.detectionMode = mode === 'automatic' ? 'automatic' : 'manual';
 
-            console.log('Deepfake Detection: Keeping manual mode active');
-            if (!this.floatingButton && this.mediaElements.length > 0) {
-                this.createFloatingButton();
+        this.stopAutomaticAnalysis();
+        this.removeAllOverlays();
+        this.mediaElements = this.findMediaElements();
+
+        if (!this.isEnabled) {
+            return;
+        }
+
+        if (this.detectionMode === 'automatic') {
+            if (this.floatingButton) {
+                this.floatingButton.remove();
+                this.floatingButton = null;
             }
+            this.syncAutomaticAnalysisTargets();
+            return;
+        }
+
+        if (!this.floatingButton && this.mediaElements.length > 0) {
+            this.createFloatingButton();
         }
     }
 
     toggleDetection(enabled) {
         console.log(`Deepfake Detection: toggleDetection called with enabled=${enabled}, current isEnabled=${this.isEnabled}, mode=${this.detectionMode}`);
         this.isEnabled = enabled;
+        this.mediaElements = this.findMediaElements();
         
         if (enabled && this.mediaElements.length > 0) {
-            // Only create floating button in manual mode
-            if (this.detectionMode === 'manual' && !this.floatingButton) {
+            if (this.detectionMode === 'automatic') {
+                if (this.floatingButton) {
+                    this.floatingButton.remove();
+                    this.floatingButton = null;
+                }
+                this.syncAutomaticAnalysisTargets();
+            } else if (!this.floatingButton) {
                 console.log('Deepfake Detection: Creating floating button for manual mode');
                 this.createFloatingButton();
             }
         } else if (!enabled) {
             console.log('Deepfake Detection: Hiding floating button and removing overlays');
+            this.stopAutomaticAnalysis();
             if (this.floatingButton) {
                 this.floatingButton.remove();
                 this.floatingButton = null;
@@ -813,43 +1275,47 @@ class ContentScript {
     }
 
     createLoadingOverlay(element) {
+        const wrapper = this.ensureMediaContainer(element);
+        if (!wrapper) {
+            return null;
+        }
+
+        const existingLoadingOverlay = wrapper.querySelector('.deepfake-loading-overlay');
+        if (existingLoadingOverlay) {
+            return existingLoadingOverlay;
+        }
+
         const container = this.markAsExtensionRoot(document.createElement('div'));
         container.className = `${ContentScript.ROOT_CLASS} deepfake-loading-overlay`;
         container.innerHTML = `
             <div class="deepfake-loading-spinner"></div>
             <div class="deepfake-loading-text">Analyzing...</div>
         `;
-        
-        // Wrap element and add overlay
-        const wrapper = this.markAsExtensionRoot(document.createElement('div'));
-        wrapper.className = `${ContentScript.ROOT_CLASS} deepfake-container`;
-        
-        element.parentNode.insertBefore(wrapper, element);
-        wrapper.appendChild(element);
+
         wrapper.appendChild(container);
         
         return container;
     }
 
     createErrorOverlay(element, errorMessage) {
+        const parentContainer = this.ensureMediaContainer(element);
+        if (!parentContainer) {
+            return;
+        }
+
+        const existingError = parentContainer.querySelector('.deepfake-error-overlay');
+        if (existingError) {
+            existingError.querySelector('.deepfake-error-text').textContent = errorMessage;
+            return;
+        }
+
         const errorContainer = this.markAsExtensionRoot(document.createElement('div'));
         errorContainer.className = `${ContentScript.ROOT_CLASS} deepfake-error-overlay`;
         errorContainer.innerHTML = `
             <div class="deepfake-error-icon">${this.getIconMarkup('alertTriangle', 24)}</div>
             <div class="deepfake-error-text">${errorMessage}</div>
         `;
-        
-        // Find or create wrapper
-        let parentContainer = element.parentNode;
-        if (!parentContainer || !parentContainer.classList.contains('deepfake-container')) {
-            const wrapper = this.markAsExtensionRoot(document.createElement('div'));
-            wrapper.className = `${ContentScript.ROOT_CLASS} deepfake-container`;
-            
-            element.parentNode.insertBefore(wrapper, element);
-            wrapper.appendChild(element);
-            parentContainer = wrapper;
-        }
-        
+
         parentContainer.appendChild(errorContainer);
         
         // Show on hover
@@ -1005,7 +1471,11 @@ class ContentScript {
     updateSensitivity(sensitivity) {
         console.log(`Deepfake Detection: Updating sensitivity to ${sensitivity}`);
         this.sensitivity = sensitivity;
-        // Sensitivity changes should only affect future manual analyses.
+        if (this.isEnabled && this.detectionMode === 'automatic') {
+            this.stopAutomaticAnalysis();
+            this.removeAllOverlays();
+            this.syncAutomaticAnalysisTargets();
+        }
     }
 
     highlightMediaElement(src) {

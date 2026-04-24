@@ -142,9 +142,9 @@ class DeepfakeDetector {
     }
 
     async handleDetectionMode() {
-        const mode = 'manual';
-        this.manualMode.checked = true;
-        this.automaticMode.checked = false;
+        const mode = this.automaticMode.checked ? 'automatic' : 'manual';
+        this.manualMode.checked = mode === 'manual';
+        this.automaticMode.checked = mode === 'automatic';
         await chrome.storage.local.set({ detectionMode: mode });
         this.updateStatus(this.btnToggle.checked);
         capturePostHogEvent('popup_detection_mode_changed', { mode });
@@ -185,10 +185,10 @@ class DeepfakeDetector {
 
     setDetectionModeState(enabled) {
         this.manualMode.disabled = !enabled;
-        this.automaticMode.disabled = true;
+        this.automaticMode.disabled = !enabled;
         this.modeSection.classList.toggle('disabled', !enabled);
         this.manualMode.parentElement.style.cursor = enabled ? 'pointer' : 'not-allowed';
-        this.automaticMode.parentElement.style.cursor = 'not-allowed';
+        this.automaticMode.parentElement.style.cursor = enabled ? 'pointer' : 'not-allowed';
     }
 
     updateStatus(isEnabled) {
@@ -198,7 +198,7 @@ class DeepfakeDetector {
             return;
         }
 
-        const mode = 'manual';
+        const mode = this.automaticMode.checked ? 'automatic' : 'manual';
         this.statusSection.textContent = `Detection enabled (${mode} mode)`;
         this.statusSection.style.color = '#28a745';
     }
@@ -222,8 +222,9 @@ class DeepfakeDetector {
         }
 
         if (changes.detectionMode) {
-            this.manualMode.checked = true;
-            this.automaticMode.checked = false;
+            const mode = changes.detectionMode.newValue === 'automatic' ? 'automatic' : 'manual';
+            this.manualMode.checked = mode === 'manual';
+            this.automaticMode.checked = mode === 'automatic';
             this.updateStatus(this.btnToggle.checked);
         }
 
@@ -266,8 +267,9 @@ class DeepfakeDetector {
             const settings = { ...defaults, ...result };
 
             this.btnToggle.checked = Boolean(settings.detectionEnabled);
-            this.manualMode.checked = true;
-            this.automaticMode.checked = false;
+            const mode = settings.detectionMode === 'automatic' ? 'automatic' : 'manual';
+            this.manualMode.checked = mode === 'manual';
+            this.automaticMode.checked = mode === 'automatic';
             this.updateSlider(this.normaliseSensitivity(settings.sensitivity));
             this.setSliderState(this.btnToggle.checked);
             this.setDetectionModeState(this.btnToggle.checked);

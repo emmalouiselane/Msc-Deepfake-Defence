@@ -1352,12 +1352,12 @@ class FullAnalysisPlatform {
     }
 
     updateDetectionMode() {
-        this.settings.detectionMode = 'manual';
+        this.settings.detectionMode = this.automaticMode?.checked ? 'automatic' : 'manual';
         if (this.manualMode) {
-            this.manualMode.checked = true;
+            this.manualMode.checked = this.settings.detectionMode === 'manual';
         }
         if (this.automaticMode) {
-            this.automaticMode.checked = false;
+            this.automaticMode.checked = this.settings.detectionMode === 'automatic';
         }
     }
 
@@ -1402,7 +1402,8 @@ class FullAnalysisPlatform {
 
     updateDetectorAvailabilityStatus() {
         if (this.settings.detectionEnabled) {
-            this.updateStatus('', 'Ready');
+            const modeText = this.settings.detectionMode === 'automatic' ? 'Automatic mode active' : 'Manual mode active';
+            this.updateStatus('', modeText);
             return;
         }
 
@@ -1440,9 +1441,10 @@ class FullAnalysisPlatform {
         this.detailLevelRadios?.forEach((radio) => {
             radio.checked = radio.value === detailPreset;
         });
-        this.manualMode.checked = true;
-        this.automaticMode.checked = false;
-        this.automaticMode.disabled = true;
+        this.manualMode.checked = this.settings.detectionMode === 'manual';
+        this.automaticMode.checked = this.settings.detectionMode === 'automatic';
+        this.manualMode.disabled = !this.settings.detectionEnabled;
+        this.automaticMode.disabled = !this.settings.detectionEnabled;
         this.modelSelect.value = this.settings.modelKey;
         this.anonymousAnalytics.checked = this.settings.anonymousAnalytics;
         this.updateModelSelection(this.settings.modelKey);
@@ -1570,7 +1572,7 @@ class FullAnalysisPlatform {
                 this.settings = {
                     detectionEnabled: Boolean(result.detectionEnabled),
                     sensitivity: typeof result.sensitivity === 'number' ? result.sensitivity : 50,
-                    detectionMode: 'manual',
+                    detectionMode: result.detectionMode === 'automatic' ? 'automatic' : 'manual',
                     modelKey: ['lightweight', 'mesonet', 'ensemble'].includes(result.modelKey) ? result.modelKey : 'ensemble',
                     detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 10,
                     anonymousAnalytics: typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : false
