@@ -1793,24 +1793,6 @@ class BackgroundService {
     }
 
     generateExplanation(riskScore, sensitivity, detailLevel = 50, inferenceResult = null) {
-        const bands = {
-            low: [
-                'The model found mostly natural feature patterns and low synthetic signal.',
-                'Only weak deepfake indicators were detected in this media.',
-                'The prediction stayed near the authentic range for the chosen sensitivity.'
-            ],
-            medium: [
-                'The model found mixed signals, so this media warrants closer review.',
-                'Several artifacts were detected, but not enough for a high-risk result.',
-                'This result is uncertain. The image is close to the line between likely real and likely manipulated. You can try increasing the sensitivity for a stricter check.'
-            ],
-            high: [
-                'The model found strong synthetic indicators in the analyzed frame.',
-                'Multiple learned features matched the deepfake pattern at this sensitivity.',
-                'The result is well above the current decision threshold for likely manipulation.'
-            ]
-        };
-
         let group = 'low';
         if (riskScore >= 66) {
             group = 'high';
@@ -1818,9 +1800,18 @@ class BackgroundService {
             group = 'medium';
         }
 
-        const explanations = bands[group];
-        const index = sensitivity % explanations.length;
-        const baseExplanation = explanations[index];
+        const summaryByGroup = {
+            low: 'This result suggests the media is likely authentic, with only weak signs of manipulation.',
+            medium: 'This result is inconclusive: the model noticed some suspicious patterns, but not enough to confidently call the media manipulated.',
+            high: 'This result suggests the media is likely manipulated, because the model found strong synthetic patterns.'
+        };
+        const detailByGroup = {
+            low: 'You can usually treat this as a low-risk result, though it is still a model estimate rather than proof.',
+            medium: 'Treat this as a caution flag and review it more closely, especially if the source is unknown or the content matters.',
+            high: 'Treat this as a strong warning sign and verify the media with additional evidence before trusting it.'
+        };
+
+        const baseExplanation = `${summaryByGroup[group]} ${detailByGroup[group]}`;
 
         if (detailLevel <= 20) {
             return baseExplanation;
@@ -1830,10 +1821,10 @@ class BackgroundService {
         const threshold = Number(inferenceResult?.threshold);
         const rawOutput = Number(inferenceResult?.rawOutput);
         const confidenceText = Number.isFinite(confidence)
-            ? ` Confidence is ${confidence.toFixed(1)}%.`
+            ? ` Confidence in this assessment is ${confidence.toFixed(1)}%.`
             : '';
         const thresholdText = Number.isFinite(threshold)
-            ? ` Decision threshold is ${threshold.toFixed(3)} at sensitivity ${sensitivity}%.`
+            ? ` The current decision cutoff is ${threshold.toFixed(3)} at sensitivity ${sensitivity}%.`
             : ` Sensitivity is set to ${sensitivity}%.`;
 
         if (detailLevel <= 70) {
@@ -1841,7 +1832,7 @@ class BackgroundService {
         }
 
         const confidenceMargin = Number.isFinite(rawOutput) && Number.isFinite(threshold)
-            ? ` Model margin versus threshold is ${(rawOutput - threshold).toFixed(6)}.`
+            ? ` The model output is ${(rawOutput - threshold).toFixed(6)} above the cutoff.`
             : '';
         const rawOutputText = Number.isFinite(rawOutput)
             ? ` Raw model output is ${rawOutput.toFixed(6)}.`
