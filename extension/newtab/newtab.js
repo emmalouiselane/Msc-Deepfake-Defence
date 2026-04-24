@@ -35,7 +35,7 @@ class FullAnalysisPlatform {
             sensitivity: 50,
             detectionMode: 'manual',
             modelKey: 'ensemble',
-            detailLevel: 50,
+            detailLevel: 10,
             anonymousAnalytics: false
         };
         this.pageHeaders = {
@@ -1377,7 +1377,7 @@ class FullAnalysisPlatform {
         return this.normalisePercent(value);
     }
 
-    getDetailPreset(detailLevel = 50) {
+    getDetailPreset(detailLevel = 10) {
         const normalised = this.normalisePercent(detailLevel);
         if (normalised <= 20) {
             return 'basic';
@@ -1572,7 +1572,7 @@ class FullAnalysisPlatform {
                     sensitivity: typeof result.sensitivity === 'number' ? result.sensitivity : 50,
                     detectionMode: 'manual',
                     modelKey: ['lightweight', 'mesonet', 'ensemble'].includes(result.modelKey) ? result.modelKey : 'ensemble',
-                    detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 50,
+                    detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 10,
                     anonymousAnalytics: typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : false
                 };
                 setPostHogConsent(this.settings.anonymousAnalytics, { source: 'load' });

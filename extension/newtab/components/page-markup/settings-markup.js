@@ -56,11 +56,11 @@ export const settingsPageMarkup = `
                 <h4>Explanation Detail Level</h4>
                 <div class="mode-toggle detail-level-toggle">
                     <label class="mode-option">
-                        <input type="radio" name="detailLevelPreset" value="basic" id="detailBasic">
+                        <input type="radio" name="detailLevelPreset" value="basic" id="detailBasic" checked>
                         <span class="mode-label">Basic</span>
                     </label>
                     <label class="mode-option">
-                        <input type="radio" name="detailLevelPreset" value="context" id="detailContext" checked>
+                        <input type="radio" name="detailLevelPreset" value="context" id="detailContext">
                         <span class="mode-label">Additional Context</span>
                     </label>
                     <label class="mode-option">

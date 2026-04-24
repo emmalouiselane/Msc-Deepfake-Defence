@@ -265,7 +265,7 @@ class BackgroundService {
             sensitivity: 50,
             detectionMode: 'manual',
             modelKey: 'ensemble',
-            detailLevel: 50,
+            detailLevel: 10,
             anonymousAnalytics: false
         };
     }
