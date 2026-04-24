@@ -17,11 +17,12 @@ export const settingsPageMarkup = `
                 <div class="row settings-inline-row">
                     <p>Model</p>
                     <select id="modelSelect" class="model-select">
+                        <option value="ensemble">Ensemble (Recommended)</option>
                         <option value="lightweight">Lightweight CNN v1</option>
                         <option value="mesonet">MesoNet</option>
                     </select>
                 </div>
-                <p class="model-help" id="modelHelpText">Lightweight is faster. MesoNet is heavier but intended to be more capable.</p>
+                <p class="model-help" id="modelHelpText">Ensemble combines MesoNet and LightweightNet for stronger reliability at a small speed cost.</p>
             </section>
 
             <section class="settings-group">

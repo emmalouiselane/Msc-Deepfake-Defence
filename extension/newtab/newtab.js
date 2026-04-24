@@ -34,7 +34,7 @@ class FullAnalysisPlatform {
             detectionEnabled: false,
             sensitivity: 50,
             detectionMode: 'manual',
-            modelKey: 'mesonet',
+            modelKey: 'ensemble',
             detailLevel: 50,
             anonymousAnalytics: false
         };
@@ -189,6 +189,12 @@ class FullAnalysisPlatform {
     attachEventListeners() {
         this.navItems.forEach((item) => {
             item.addEventListener('click', () => this.handleNavigation(item));
+        });
+
+        chrome.storage.onChanged.addListener((changes, namespace) => {
+            if (namespace === 'local') {
+                this.handleStorageChanges(changes);
+            }
         });
 
         this.headerActionBtn?.addEventListener('click', () => this.handleHeaderAction());
@@ -1404,7 +1410,18 @@ class FullAnalysisPlatform {
     }
 
     updateModelSelection(value) {
-        this.settings.modelKey = value === 'mesonet' ? 'mesonet' : 'lightweight';
+        const allowedModelKeys = ['lightweight', 'mesonet', 'ensemble'];
+        this.settings.modelKey = allowedModelKeys.includes(value) ? value : 'ensemble';
+
+        if (!this.modelHelpText) {
+            return;
+        }
+
+        if (this.settings.modelKey === 'ensemble') {
+            this.modelHelpText.textContent = 'Ensemble combines MesoNet and LightweightNet for stronger reliability at a small speed cost.';
+            return;
+        }
+
         this.modelHelpText.textContent = this.settings.modelKey === 'mesonet'
             ? 'MesoNet is heavier and slower, but it offers a stronger research-oriented path.'
             : 'Lightweight is faster. MesoNet is heavier but intended to be more capable.';
@@ -1429,6 +1446,47 @@ class FullAnalysisPlatform {
         this.modelSelect.value = this.settings.modelKey;
         this.anonymousAnalytics.checked = this.settings.anonymousAnalytics;
         this.updateModelSelection(this.settings.modelKey);
+    }
+
+    handleStorageChanges(changes) {
+        let shouldRefreshControls = false;
+
+        if (changes.detectionEnabled) {
+            this.settings.detectionEnabled = Boolean(changes.detectionEnabled.newValue);
+            shouldRefreshControls = true;
+        }
+
+        if (changes.sensitivity) {
+            this.settings.sensitivity = this.normalisePercent(changes.sensitivity.newValue);
+            shouldRefreshControls = true;
+        }
+
+        if (changes.detectionMode) {
+            this.settings.detectionMode = changes.detectionMode.newValue === 'automatic' ? 'automatic' : 'manual';
+            shouldRefreshControls = true;
+        }
+
+        if (changes.modelKey) {
+            this.settings.modelKey = ['lightweight', 'mesonet', 'ensemble'].includes(changes.modelKey.newValue)
+                ? changes.modelKey.newValue
+                : 'ensemble';
+            shouldRefreshControls = true;
+        }
+
+        if (changes.detailLevel) {
+            this.settings.detailLevel = this.normaliseDetailLevel(changes.detailLevel.newValue);
+            shouldRefreshControls = true;
+        }
+
+        if (changes.anonymousAnalytics) {
+            this.settings.anonymousAnalytics = Boolean(changes.anonymousAnalytics.newValue);
+            setPostHogConsent(this.settings.anonymousAnalytics, { source: 'storage_change' });
+            shouldRefreshControls = true;
+        }
+
+        if (shouldRefreshControls) {
+            this.applySettingsToControls();
+        }
     }
 
     saveSettings() {
@@ -1513,7 +1571,7 @@ class FullAnalysisPlatform {
                     detectionEnabled: Boolean(result.detectionEnabled),
                     sensitivity: typeof result.sensitivity === 'number' ? result.sensitivity : 50,
                     detectionMode: 'manual',
-                    modelKey: result.modelKey === 'lightweight' ? 'lightweight' : 'mesonet',
+                    modelKey: ['lightweight', 'mesonet', 'ensemble'].includes(result.modelKey) ? result.modelKey : 'ensemble',
                     detailLevel: typeof result.detailLevel === 'number' ? result.detailLevel : 50,
                     anonymousAnalytics: typeof result.anonymousAnalytics === 'boolean' ? result.anonymousAnalytics : false
                 };

@@ -10,8 +10,19 @@ class BackgroundService {
     constructor() {
         this.modelSession = null;
         this.modelInitialized = false;
+        this.modelSessions = new Map();
         this.ort = null;
         this.mediaDbPromise = null;
+        this.ensembleModelKeys = ['mesonet', 'lightweight'];
+        this.ensembleWeights = {
+            mesonet: 0.7,
+            lightweight: 0.3
+        };
+        this.calibrationProfiles = {
+            mesonet: { type: 'logit', scale: 1, bias: 0 },
+            lightweight: { type: 'logit', scale: 1, bias: 0 },
+            ensemble: { type: 'logit', scale: 1, bias: 0 }
+        };
         this.modelRegistry = {
             lightweight: {
                 key: 'lightweight',
@@ -38,9 +49,20 @@ class BackgroundService {
                 lastUpdated: '2026-04-03',
                 modelPath: 'models/mesonet_model.onnx',
                 externalDataPath: 'models/mesonet_model.onnx.data'
+            },
+            ensemble: {
+                key: 'ensemble',
+                name: 'Ensemble (MesoNet + LightweightNet)',
+                version: '2.11',
+                architecture: 'Weighted probability ensemble',
+                parameters: 30386,
+                size: '0.14 MB',
+                framework: 'PyTorch + ONNX',
+                accuracy: 'Research candidate+',
+                lastUpdated: '2026-04-20'
             }
         };
-        this.selectedModelKey = 'mesonet';
+        this.selectedModelKey = 'ensemble';
         this.modelInfo = this.modelRegistry[this.selectedModelKey];
 
         initSentry('background');
@@ -134,7 +156,6 @@ class BackgroundService {
                 case 'toggleDetection': {
                     const enabled = Boolean(message.enabled);
                     await chrome.storage.local.set({ detectionEnabled: enabled });
-                    await this.notifyActiveTab({ action: 'toggleDetection', enabled });
                     sendResponse({ success: true });
                     return;
                 }
@@ -142,7 +163,6 @@ class BackgroundService {
                 case 'updateSensitivity': {
                     const sensitivity = this.normaliseSensitivity(message.sensitivity);
                     await chrome.storage.local.set({ sensitivity });
-                    await this.notifyActiveTab({ action: 'updateSensitivity', sensitivity });
                     sendResponse({ success: true, sensitivity });
                     return;
                 }
@@ -150,7 +170,6 @@ class BackgroundService {
                 case 'updateDetectionMode': {
                     const mode = message.mode === 'automatic' ? 'automatic' : 'manual';
                     await chrome.storage.local.set({ detectionMode: mode });
-                    await this.notifyActiveTab({ action: 'updateDetectionMode', mode });
                     sendResponse({ success: true, mode });
                     return;
                 }
@@ -245,7 +264,7 @@ class BackgroundService {
             detectionEnabled: false,
             sensitivity: 50,
             detectionMode: 'manual',
-            modelKey: 'mesonet',
+            modelKey: 'ensemble',
             detailLevel: 50,
             anonymousAnalytics: false
         };
@@ -263,7 +282,7 @@ class BackgroundService {
     }
 
     normaliseModelKey(value) {
-        return Object.prototype.hasOwnProperty.call(this.modelRegistry, value) ? value : 'mesonet';
+        return Object.prototype.hasOwnProperty.call(this.modelRegistry, value) ? value : 'ensemble';
     }
 
     getSelectedModelInfo() {
@@ -298,6 +317,7 @@ class BackgroundService {
     async resetModelSession() {
         this.modelSession = null;
         this.modelInitialized = false;
+        this.modelSessions.clear();
     }
 
     getEmptyStatistics() {
@@ -335,7 +355,7 @@ class BackgroundService {
             await this.resetModelSession();
         }
 
-        if (this.modelInitialized && this.modelSession) {
+        if (this.isSelectedModelReady()) {
             return;
         }
 
@@ -755,14 +775,46 @@ class BackgroundService {
     async initialiseONNXModel() {
         await this.loadONNXRuntime();
 
-        const modelConfig = this.getSelectedModelInfo();
-
         this.ort.env.wasm.wasmPaths = {
             'ort-wasm-simd-threaded.wasm': chrome.runtime.getURL('dist/ort-wasm-simd-threaded.wasm')
         };
         this.ort.env.wasm.numThreads = 1;
         this.ort.env.wasm.simd = false;
         this.ort.env.wasm.proxy = false;
+
+        const requiredModelKeys = this.getRequiredModelKeysForSelection();
+        await Promise.all(requiredModelKeys.map((modelKey) => this.ensureModelSession(modelKey)));
+
+        this.modelSession = this.modelSessions.get(requiredModelKeys[0]) || null;
+        this.modelInitialized = this.isSelectedModelReady();
+    }
+
+    getRequiredModelKeysForSelection() {
+        if (this.selectedModelKey === 'ensemble') {
+            return this.ensembleModelKeys.filter((modelKey) => this.modelRegistry[modelKey]?.modelPath);
+        }
+
+        return [this.selectedModelKey];
+    }
+
+    isSelectedModelReady() {
+        const requiredModelKeys = this.getRequiredModelKeysForSelection();
+        if (!requiredModelKeys.length) {
+            return false;
+        }
+
+        return requiredModelKeys.every((modelKey) => this.modelSessions.has(modelKey));
+    }
+
+    async ensureModelSession(modelKey) {
+        if (this.modelSessions.has(modelKey)) {
+            return this.modelSessions.get(modelKey);
+        }
+
+        const modelConfig = this.modelRegistry[modelKey];
+        if (!modelConfig?.modelPath) {
+            throw new Error(`Model "${modelKey}" is missing a runtime path.`);
+        }
 
         const modelBytes = await this.fetchModelBytes(modelConfig.modelPath);
         const sessionOptions = {
@@ -779,9 +831,9 @@ class BackgroundService {
             ];
         }
 
-        this.modelSession = await this.ort.InferenceSession.create(modelBytes, sessionOptions);
-
-        this.modelInitialized = true;
+        const session = await this.ort.InferenceSession.create(modelBytes, sessionOptions);
+        this.modelSessions.set(modelKey, session);
+        return session;
     }
 
     async fetchModelBytes(modelPath) {
@@ -1016,52 +1068,194 @@ class BackgroundService {
     async runDirectInference(imageBitmap, sensitivity, imageDebug = {}) {
         const preprocessing = await this.preprocessImage(imageBitmap);
         const inputTensor = preprocessing.inputTensor;
-        const results = await this.modelSession.run({ input: inputTensor });
-        const outputName = Object.keys(results)[0];
-
-        if (!outputName || !results[outputName]?.data?.length) {
-            throw new Error('Model returned an empty output tensor.');
-        }
-
-        const rawOutput = Number(results[outputName].data[0]);
+        const inferenceSummary = await this.runSelectedInference(inputTensor);
+        const rawOutput = inferenceSummary.rawOutput;
+        const calibratedOutput = inferenceSummary.calibratedOutput;
         const threshold = this.calculateSensitivityThreshold(sensitivity);
-        const confidence = this.calculateConfidence(rawOutput, threshold);
-        const riskScore = this.applySensitivityToModelOutput(rawOutput, sensitivity);
-        const margin = rawOutput - threshold;
+        const confidence = this.calculateConfidence(calibratedOutput, threshold);
+        const riskScore = this.applySensitivityToModelOutput(calibratedOutput, sensitivity);
+        const margin = calibratedOutput - threshold;
 
         console.log('Deepfake Detection: Inference summary', {
             rawOutput: rawOutput.toFixed(6),
+            calibratedOutput: calibratedOutput.toFixed(6),
             threshold: threshold.toFixed(6),
             margin: margin.toFixed(6),
             riskScore: riskScore.toFixed(2),
             confidence: confidence.toFixed(2),
-            outputName,
+            outputName: inferenceSummary.outputName,
             tensorShape: inputTensor.dims,
             inputSize: preprocessing.debug?.sourceDimensions,
-            strategy: imageDebug.strategy || 'unknown'
+            strategy: imageDebug.strategy || 'unknown',
+            modelKey: this.selectedModelKey
         });
 
         return {
             riskScore,
             confidence,
             rawOutput,
+            calibratedOutput,
             threshold,
             technicalDetails: {
-                model: `${this.modelInfo.name} v${this.modelInfo.version}`,
+                model: this.getActiveModelLabel(),
                 parameters: this.modelInfo.parameters.toLocaleString(),
                 sensitivity,
                 threshold: threshold.toFixed(3),
                 rawOutput: rawOutput.toFixed(6),
+                calibratedOutput: calibratedOutput.toFixed(6),
                 margin: margin.toFixed(6),
-                outputName,
-                confidenceBasis: 'distance-from-threshold',
+                outputName: inferenceSummary.outputName,
+                confidenceBasis: 'distance-from-threshold-calibrated',
                 captureStrategy: imageDebug.strategy || 'unknown',
                 sourceDimensions: preprocessing.debug?.sourceDimensions || null,
-                resizedDimensions: preprocessing.debug?.resizedDimensions || null
+                resizedDimensions: preprocessing.debug?.resizedDimensions || null,
+                modelKey: this.selectedModelKey,
+                ensembleComponents: inferenceSummary.components,
+                calibration: inferenceSummary.calibration
             },
             debug: {
                 capture: imageDebug,
                 preprocess: preprocessing.debug
+            }
+        };
+    }
+
+    async runSelectedInference(inputTensor) {
+        if (this.selectedModelKey !== 'ensemble') {
+            const singleResult = await this.runSingleModelInference(this.selectedModelKey, inputTensor);
+            return {
+                rawOutput: singleResult.rawOutput,
+                calibratedOutput: singleResult.calibratedOutput,
+                outputName: singleResult.outputName,
+                components: [singleResult.component],
+                calibration: singleResult.calibration
+            };
+        }
+
+        const modelKeys = this.getRequiredModelKeysForSelection();
+        const weights = this.getNormalisedEnsembleWeights(modelKeys);
+        const componentResults = await Promise.all(
+            modelKeys.map((modelKey) => this.runSingleModelInference(modelKey, inputTensor))
+        );
+
+        const weightedRaw = componentResults.reduce(
+            (sum, result) => sum + (result.rawOutput * (weights[result.modelKey] || 0)),
+            0
+        );
+        const weightedCalibrated = componentResults.reduce(
+            (sum, result) => sum + (result.calibratedOutput * (weights[result.modelKey] || 0)),
+            0
+        );
+
+        const calibration = this.applyCalibration(weightedCalibrated, 'ensemble');
+        return {
+            rawOutput: this.clampProbability(weightedRaw),
+            calibratedOutput: calibration.calibratedOutput,
+            outputName: 'ensemble:weighted',
+            components: componentResults.map((result) => ({
+                ...result.component,
+                weight: weights[result.modelKey] || 0
+            })),
+            calibration: calibration.details
+        };
+    }
+
+    async runSingleModelInference(modelKey, inputTensor) {
+        const session = this.modelSessions.get(modelKey);
+        if (!session) {
+            throw new Error(`Model session not initialised for "${modelKey}".`);
+        }
+
+        const results = await session.run({ input: inputTensor });
+        const outputName = Object.keys(results)[0];
+        if (!outputName || !results[outputName]?.data?.length) {
+            throw new Error(`Model "${modelKey}" returned an empty output tensor.`);
+        }
+
+        const rawOutput = this.clampProbability(Number(results[outputName].data[0]));
+        const calibration = this.applyCalibration(rawOutput, modelKey);
+        const modelConfig = this.modelRegistry[modelKey];
+        return {
+            modelKey,
+            outputName,
+            rawOutput,
+            calibratedOutput: calibration.calibratedOutput,
+            calibration: calibration.details,
+            component: {
+                modelKey,
+                model: `${modelConfig?.name || modelKey} v${modelConfig?.version || 'unknown'}`,
+                rawOutput: Number(rawOutput.toFixed(6)),
+                calibratedOutput: Number(calibration.calibratedOutput.toFixed(6))
+            }
+        };
+    }
+
+    getNormalisedEnsembleWeights(modelKeys) {
+        const normalisedWeights = {};
+        let totalWeight = 0;
+
+        modelKeys.forEach((modelKey) => {
+            const weight = Math.max(0, Number(this.ensembleWeights[modelKey]) || 0);
+            normalisedWeights[modelKey] = weight;
+            totalWeight += weight;
+        });
+
+        if (totalWeight <= 0) {
+            const equalWeight = 1 / Math.max(1, modelKeys.length);
+            modelKeys.forEach((modelKey) => {
+                normalisedWeights[modelKey] = equalWeight;
+            });
+            return normalisedWeights;
+        }
+
+        modelKeys.forEach((modelKey) => {
+            normalisedWeights[modelKey] = normalisedWeights[modelKey] / totalWeight;
+        });
+
+        return normalisedWeights;
+    }
+
+    getActiveModelLabel() {
+        if (this.selectedModelKey === 'ensemble') {
+            const members = this.getRequiredModelKeysForSelection()
+                .map((modelKey) => this.modelRegistry[modelKey]?.name || modelKey)
+                .join(' + ');
+            return `Ensemble (${members}) v${this.modelInfo.version}`;
+        }
+
+        return `${this.modelInfo.name} v${this.modelInfo.version}`;
+    }
+
+    clampProbability(value) {
+        if (!Number.isFinite(value)) {
+            return 0;
+        }
+
+        return Math.max(0, Math.min(1, value));
+    }
+
+    applyCalibration(rawOutput, modelKey) {
+        const profile = this.calibrationProfiles[modelKey] || { type: 'logit', scale: 1, bias: 0 };
+        const clampedRaw = this.clampProbability(rawOutput);
+        let calibratedOutput = clampedRaw;
+
+        if (profile.type === 'linear') {
+            calibratedOutput = this.clampProbability((clampedRaw * (profile.scale ?? 1)) + (profile.bias ?? 0));
+        } else {
+            const epsilon = 1e-6;
+            const safeRaw = Math.max(epsilon, Math.min(1 - epsilon, clampedRaw));
+            const logit = Math.log(safeRaw / (1 - safeRaw));
+            const adjusted = (logit * (profile.scale ?? 1)) + (profile.bias ?? 0);
+            calibratedOutput = 1 / (1 + Math.exp(-adjusted));
+        }
+
+        return {
+            calibratedOutput: this.clampProbability(calibratedOutput),
+            details: {
+                modelKey,
+                type: profile.type || 'logit',
+                scale: Number(profile.scale ?? 1),
+                bias: Number(profile.bias ?? 0)
             }
         };
     }
@@ -1434,22 +1628,32 @@ class BackgroundService {
         };
     }
 
-    async notifyActiveTab(message) {
-        const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    async notifyAllTabs(message) {
+        const tabs = await chrome.tabs.query({});
 
-        if (!activeTab?.id) {
-            return;
-        }
-
-        try {
-            await chrome.tabs.sendMessage(activeTab.id, message);
-        } catch (error) {
-            console.debug('No content script response for active tab:', error);
-        }
+        await Promise.allSettled(
+            tabs
+                .filter((tab) => Number.isInteger(tab.id))
+                .map(async (tab) => {
+                    try {
+                        await chrome.tabs.sendMessage(tab.id, message);
+                    } catch (error) {
+                        console.debug(`No content script response for tab ${tab.id}:`, error);
+                    }
+                })
+        );
     }
 
     async getModelInfo() {
-        return this.getSelectedModelInfo();
+        return {
+            ...this.getSelectedModelInfo(),
+            modelKey: this.selectedModelKey,
+            requiredModelKeys: this.getRequiredModelKeysForSelection(),
+            ensembleWeights: this.selectedModelKey === 'ensemble'
+                ? this.getNormalisedEnsembleWeights(this.getRequiredModelKeysForSelection())
+                : null,
+            calibrationProfile: this.calibrationProfiles[this.selectedModelKey] || null
+        };
     }
 
     async getStatistics() {
@@ -1526,6 +1730,28 @@ class BackgroundService {
                     this.resetModelSession();
                 }
             }
+
+            if (changes.detectionEnabled) {
+                void this.notifyAllTabs({
+                    action: 'toggleDetection',
+                    enabled: Boolean(changes.detectionEnabled.newValue)
+                });
+            }
+
+            if (changes.sensitivity) {
+                void this.notifyAllTabs({
+                    action: 'updateSensitivity',
+                    sensitivity: this.normaliseSensitivity(changes.sensitivity.newValue)
+                });
+            }
+
+            if (changes.detectionMode) {
+                void this.notifyAllTabs({
+                    action: 'updateDetectionMode',
+                    mode: changes.detectionMode.newValue === 'automatic' ? 'automatic' : 'manual'
+                });
+            }
+
             console.log('Storage changed:', changes);
         }
     }
