@@ -44,11 +44,11 @@ export const dashboardPageMarkup = `
             </div>
             <div class="insight-grid">
                 <article class="insight-card">
-                    <div class="insight-card-title">Flag Rate</div>
+                    <div class="insight-card-title">Recent Confidence</div>
                     <div class="mini-chart mini-chart-wave" id="flagRateChart"></div>
                     <div class="chart-legend" id="flagRateLegend"></div>
                     <div class="chart-insight" id="flagRateInsight">No analysis history yet.</div>
-                    <p>Running percentage of flagged items across recent analyses.</p>
+                    <p>Confidence trend across a smaller recent sample.</p>
                 </article>
                 <article class="insight-card">
                     <div class="insight-card-title">Confidence Distribution</div>

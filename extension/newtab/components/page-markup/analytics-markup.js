@@ -17,15 +17,7 @@ export const analyticsPageMarkup = `
                 </div>
             </section>
 
-            <section class="analytics-section">
-                <h4>Detection Trends</h4>
-                <div class="trend-panel">
-                    <span class="trend-label">Flag Rate Over Time</span>
-                    <div class="trend-chart" id="trendChart"></div>
-                </div>
-            </section>
-
-            <section class="analytics-section-grid-2">
+            <section class="analytics-section analytics-section-grid-2">
                 <div>
                     <h4>Confidence Distribution</h4>
                     <div class="distribution-list">
@@ -48,6 +40,14 @@ export const analyticsPageMarkup = `
                     <div class="confidence-trend-panel">
                         <div class="trend-chart" id="confidenceTrendChart"></div>
                     </div>                    
+                </div>
+            </section>
+
+            <section class="analytics-section">
+                <h4>Detection Trends</h4>
+                <div class="trend-panel">
+                    <span class="trend-label">Flag Rate Over Time</span>
+                    <div class="trend-chart" id="trendChart"></div>
                 </div>
             </section>
 

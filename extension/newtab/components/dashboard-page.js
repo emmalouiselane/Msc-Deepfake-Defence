@@ -5,18 +5,30 @@ export class DashboardPage {
 
     render() {
         const recent = this.platform.analysisHistory.slice(0, 12);
-        const flagRateSeries = this.platform.getFlagRateSeries(recent);
+        const recentChronological = [...recent].reverse();
+        const confidenceTrendSeries = recentChronological.map((item) => this.platform.normalisePercent(item.confidence));
         const confidenceDistributionSeries = this.platform.getConfidenceDistributionSeries(recent);
         this.renderRecentActivity();
         this.platform.renderMiniChart(
             this.platform.flagRateChart,
-            flagRateSeries.length > 0
-                ? flagRateSeries
-                : recent.map((item) => ((Number(item.riskScore) || 0) >= 66 ? 100 : 0)),
+            confidenceTrendSeries,
             'wave',
             {
                 emptyMessage: 'No analysis history yet.',
-                valueLabelPrefix: 'Running flag rate'
+                valueLabelPrefix: 'Confidence',
+                segmentLabels: recentChronological.map((item) => this.platform.formatTime(item.timestamp)),
+                segmentClasses: recentChronological.map((item) => {
+                    const confidence = Number(item.confidence) || 0;
+                    if (confidence < 50) {
+                        return 'confidence-low';
+                    }
+
+                    if (confidence < 75) {
+                        return 'confidence-medium';
+                    }
+
+                    return 'confidence-high';
+                })
             }
         );
         this.platform.renderMiniChart(
@@ -31,26 +43,28 @@ export class DashboardPage {
                 valueLabelPrefix: 'Confidence share'
             }
         );
-        this.renderChartInsights(recent, flagRateSeries, confidenceDistributionSeries);
+        this.renderChartInsights(recent, confidenceTrendSeries, confidenceDistributionSeries);
         this.renderRiskBreakdown();
     }
 
-    renderChartInsights(recentItems, flagRateSeries, confidenceDistributionSeries) {
+    renderChartInsights(recentItems, confidenceTrendSeries, confidenceDistributionSeries) {
         if (this.platform.flagRateLegend) {
             this.platform.flagRateLegend.innerHTML = '';
         }
 
         if (this.platform.flagRateInsight) {
-            if (!recentItems.length || !flagRateSeries.length) {
+            if (!recentItems.length || !confidenceTrendSeries.length) {
                 this.platform.flagRateInsight.textContent = 'No analysis history yet.';
             } else {
-                const flaggedCount = recentItems.filter((item) => (Number(item.riskScore) || 0) >= 66).length;
-                const latestRate = flagRateSeries[flagRateSeries.length - 1] || 0;
-                this.platform.flagRateInsight.textContent = `${flaggedCount} of ${recentItems.length} recent items were flagged (${latestRate}%).`;
+                const averageConfidence = Math.round(
+                    recentItems.reduce((sum, item) => sum + (Number(item.confidence) || 0), 0) / recentItems.length
+                );
+                const latestConfidence = confidenceTrendSeries[confidenceTrendSeries.length - 1] || 0;
+                this.platform.flagRateInsight.textContent = `Recent analyses averaged ${averageConfidence}% confidence (${latestConfidence}% latest).`;
                 if (this.platform.flagRateLegend) {
                     this.platform.flagRateLegend.innerHTML = `
                         <span class="chart-key"><strong>${recentItems.length}</strong> samples</span>
-                        <span class="chart-key"><strong>${latestRate}%</strong> current</span>
+                        <span class="chart-key"><strong>${latestConfidence}%</strong> latest</span>
                     `;
                 }
             }

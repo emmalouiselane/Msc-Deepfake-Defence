@@ -724,18 +724,18 @@ class FullAnalysisPlatform {
         }
 
         const normalisedData = data.map((value) => this.normalisePercent(value));
-        const maxValue = Math.max(...normalisedData, 0);
 
         normalisedData.forEach((normalisedValue, index) => {
             const bar = document.createElement('span');
             const segmentLabel = Array.isArray(options.segmentLabels) ? options.segmentLabels[index] : null;
+            const segmentClass = Array.isArray(options.segmentClasses) ? options.segmentClasses[index] : null;
             const valueLabelPrefix = options.valueLabelPrefix || 'Value';
             const tooltipText = `${segmentLabel || valueLabelPrefix}: ${normalisedValue}%`;
-            const proportionalHeight = maxValue > 0
-                ? Math.round((normalisedValue / maxValue) * 100)
-                : 1;
-            const segmentHeight = Math.max(1, proportionalHeight);
+            const segmentHeight = Math.max(1, normalisedValue);
             bar.className = variant === 'wave' ? 'chart-wave-segment' : 'chart-bar-segment';
+            if (segmentClass) {
+                bar.classList.add(segmentClass);
+            }
             bar.style.setProperty('--segment-height', `${segmentHeight}%`);
             bar.setAttribute('aria-label', tooltipText);
             bar.setAttribute('data-tooltip', tooltipText);
@@ -761,6 +761,35 @@ class FullAnalysisPlatform {
             const runningRate = (flaggedCount / (index + 1)) * 100;
             return this.normalisePercent(runningRate);
         });
+    }
+
+    getFlagRateTrendData(items = []) {
+        if (!Array.isArray(items) || items.length === 0) {
+            return {
+                chronologicalItems: [],
+                series: [],
+                segmentLabels: [],
+                segmentClasses: [],
+                flaggedCount: 0,
+                latestRate: 0
+            };
+        }
+
+        const chronologicalItems = [...items].reverse();
+        const series = this.getFlagRateSeries(items);
+        const flaggedCount = chronologicalItems.filter((item) => (Number(item.riskScore) || 0) >= 66).length;
+
+        return {
+            chronologicalItems,
+            series,
+            segmentLabels: chronologicalItems.map((item) => this.formatTime(item.timestamp)),
+            segmentClasses: chronologicalItems.map((item) => {
+                const riskLevel = this.getRiskLevel(item.riskScore);
+                return `risk-${riskLevel.class}`;
+            }),
+            flaggedCount,
+            latestRate: series[series.length - 1] || 0
+        };
     }
 
     getConfidenceDistributionSeries(items = []) {
@@ -1229,7 +1258,18 @@ class FullAnalysisPlatform {
             });
         }
 
-        this.renderMiniChart(this.trendChart, this.analysisHistory.slice(0, 18).map((item) => item.riskScore || 0), 'bars');
+        const riskTrendEntries = this.analysisHistory.slice(0, 18);
+        const flagRateTrend = this.getFlagRateTrendData(riskTrendEntries);
+        this.renderMiniChart(
+            this.trendChart,
+            flagRateTrend.series,
+            'wave',
+            {
+                segmentLabels: flagRateTrend.segmentLabels,
+                segmentClasses: flagRateTrend.segmentClasses,
+                valueLabelPrefix: 'Running flag rate'
+            }
+        );
         if (this.confidenceTrendChart) {
             const confidenceTrendEntries = this.analysisHistory
                 .slice(0, 18)
@@ -1240,6 +1280,18 @@ class FullAnalysisPlatform {
                 'wave',
                 {
                     segmentLabels: confidenceTrendEntries.map((item) => this.formatTime(item.timestamp)),
+                    segmentClasses: confidenceTrendEntries.map((item) => {
+                        const confidence = Number(item.confidence) || 0;
+                        if (confidence < 50) {
+                            return 'confidence-low';
+                        }
+
+                        if (confidence < 75) {
+                            return 'confidence-medium';
+                        }
+
+                        return 'confidence-high';
+                    }),
                     valueLabelPrefix: 'Confidence'
                 }
             );
