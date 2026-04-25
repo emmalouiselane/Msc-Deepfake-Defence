@@ -20,7 +20,7 @@ export class HistoryPage {
 
         if (filter !== 'all') {
             items = items.filter((item) => {
-                const riskLevel = this.platform.getRiskLevel(item.riskScore).class;
+                const riskLevel = this.platform.getResultRiskLevel(item).class;
                 return riskLevel === filter;
             });
         }
@@ -55,7 +55,7 @@ export class HistoryPage {
         }
 
         items.forEach((result) => {
-            const riskLevel = this.platform.getRiskLevel(result.riskScore);
+            const riskLevel = this.platform.getResultRiskLevel(result);
             const sourceContext = this.platform.getSourceContext(result);
             const modelLabel = result.technicalDetails?.model || 'Unknown model';
             const processingTime = Number(result.processingTime);

@@ -474,6 +474,44 @@ class FullAnalysisPlatform {
         return { label: 'Likely Synthetic', class: 'high' };
     }
 
+    getResultRiskLevel(result) {
+        if (result?.finalLabel?.label && result?.finalLabel?.class) {
+            return {
+                label: result.finalLabel.label,
+                class: result.finalLabel.class
+            };
+        }
+
+        return this.getRiskLevel(Number(result?.riskScore) || 0);
+    }
+
+    isSyntheticResult(result) {
+        if (result?.finalLabel?.decision) {
+            return result.finalLabel.decision === 'synthetic';
+        }
+
+        return (Number(result?.riskScore) || 0) >= 66;
+    }
+
+    isLowRiskResult(result) {
+        if (result?.finalLabel?.class) {
+            return result.finalLabel.class === 'low';
+        }
+
+        return (Number(result?.riskScore) || 0) < 33;
+    }
+
+    getMediumRiskCount(items = []) {
+        return items.filter((result) => {
+            if (result?.finalLabel?.class) {
+                return result.finalLabel.class === 'medium';
+            }
+
+            const score = Number(result?.riskScore) || 0;
+            return score >= 33 && score < 66;
+        }).length;
+    }
+
     getCurrentAnalysis() {
         if (this.analysisHistory.length === 0) {
             return null;
@@ -604,8 +642,8 @@ class FullAnalysisPlatform {
         const totalRisk = this.analysisHistory.reduce((sum, result) => sum + (result.riskScore || 0), 0);
 
         this.statistics.totalAnalysed = total;
-        this.statistics.highRiskCount = this.analysisHistory.filter((result) => result.riskScore >= 66).length;
-        this.statistics.lowRiskCount = this.analysisHistory.filter((result) => result.riskScore < 33).length;
+        this.statistics.highRiskCount = this.analysisHistory.filter((result) => this.isSyntheticResult(result)).length;
+        this.statistics.lowRiskCount = this.analysisHistory.filter((result) => this.isLowRiskResult(result)).length;
         this.statistics.avgProcessingTime = total > 0 ? Math.round(totalTime / total) : 0;
         this.statistics.avgRiskScore = total > 0 ? Math.round(totalRisk / total) : 0;
 
@@ -632,7 +670,7 @@ class FullAnalysisPlatform {
             if (!recentItems.length || !flagRateSeries.length) {
                 this.flagRateInsight.textContent = 'No analysis history yet.';
             } else {
-                const flaggedCount = recentItems.filter((item) => (Number(item.riskScore) || 0) >= 66).length;
+                const flaggedCount = recentItems.filter((item) => this.isSyntheticResult(item)).length;
                 const latestRate = flagRateSeries[flagRateSeries.length - 1] || 0;
                 this.flagRateInsight.textContent = `${flaggedCount} of ${recentItems.length} recent items were flagged (${latestRate}%).`;
                 if (this.flagRateLegend) {
@@ -682,7 +720,7 @@ class FullAnalysisPlatform {
         }
 
         recent.forEach((result) => {
-            const riskLevel = this.getRiskLevel(result.riskScore);
+            const riskLevel = this.getResultRiskLevel(result);
             const sourceContext = this.getSourceContext(result);
             const modelLabel = result.technicalDetails?.model || 'Unknown model';
             const card = document.createElement('article');
@@ -754,7 +792,7 @@ class FullAnalysisPlatform {
         let flaggedCount = 0;
 
         return chronological.map((item, index) => {
-            if ((Number(item.riskScore) || 0) >= 66) {
+            if (this.isSyntheticResult(item)) {
                 flaggedCount += 1;
             }
 
@@ -777,14 +815,14 @@ class FullAnalysisPlatform {
 
         const chronologicalItems = [...items].reverse();
         const series = this.getFlagRateSeries(items);
-        const flaggedCount = chronologicalItems.filter((item) => (Number(item.riskScore) || 0) >= 66).length;
+        const flaggedCount = chronologicalItems.filter((item) => this.isSyntheticResult(item)).length;
 
         return {
             chronologicalItems,
             series,
             segmentLabels: chronologicalItems.map((item) => this.formatTime(item.timestamp)),
             segmentClasses: chronologicalItems.map((item) => {
-                const riskLevel = this.getRiskLevel(item.riskScore);
+                const riskLevel = this.getResultRiskLevel(item);
                 return `risk-${riskLevel.class}`;
             }),
             flaggedCount,
@@ -842,7 +880,9 @@ class FullAnalysisPlatform {
             riskScore: result.riskScore,
             confidence: result.confidence,
             model: result.technicalDetails?.model || 'Unknown model',
-            processingTime: result.processingTime
+            processingTime: result.processingTime,
+            finalLabel: result.finalLabel || null,
+            predictedLabel: result.predictedLabel || null
         }].filter((run) => run.timestamp || Number.isFinite(run.riskScore));
     }
 
@@ -852,7 +892,7 @@ class FullAnalysisPlatform {
         }
 
         const total = Math.max(this.analysisHistory.length, 1);
-        const mediumCount = this.analysisHistory.filter((result) => result.riskScore >= 33 && result.riskScore < 66).length;
+        const mediumCount = this.getMediumRiskCount(this.analysisHistory);
         const breakdown = [
             { label: 'Low', value: Math.round((this.statistics.lowRiskCount / total) * 100), className: 'low' },
             { label: 'Medium', value: Math.round((mediumCount / total) * 100), className: 'medium' },
@@ -982,7 +1022,7 @@ class FullAnalysisPlatform {
             return;
         }
 
-        const riskLevel = this.getRiskLevel(current.riskScore);
+        const riskLevel = this.getResultRiskLevel(current);
         this.renderMediaPreview(current, riskLevel);
         this.analysisResultLabel.textContent = `${Math.round(current.riskScore)}% ${riskLevel.label.toLowerCase()}`;
         this.analysisModelLabel.textContent = current.technicalDetails?.model || 'Unknown model';
@@ -1125,7 +1165,7 @@ class FullAnalysisPlatform {
         this.analysisHistoryList.innerHTML = runs.map((run, index) => {
             const riskScore = this.normalisePercent(run.riskScore || 0);
             const confidence = this.normalisePercent(run.confidence || 0);
-            const riskLevel = this.getRiskLevel(riskScore);
+            const riskLevel = this.getResultRiskLevel(run);
             return `
                 <article class="analysis-history-row">
                     <div class="analysis-history-row-top">
@@ -1235,7 +1275,7 @@ class FullAnalysisPlatform {
         this.analyticsProcessing.textContent = `${this.statistics.avgProcessingTime}ms`;
         const total = Math.max(this.analysisHistory.length, 1);
         const flaggedCount = this.statistics.highRiskCount;
-        const mediumCount = this.analysisHistory.filter((item) => item.riskScore >= 33 && item.riskScore < 66).length;
+        const mediumCount = this.getMediumRiskCount(this.analysisHistory);
 
         if (this.analyticsFlagRate) {
             this.analyticsFlagRate.textContent = `${Math.round((flaggedCount / total) * 100)}%`;
@@ -1580,18 +1620,29 @@ class FullAnalysisPlatform {
         this.navigateToPage('dashboard');
     }
 
-    exportResults() {
+    async exportResults() {
         if (this.analysisHistory.length === 0) {
             this.showError('No results to export');
             return;
         }
 
         capturePostHogEvent('newtab_results_exported', { result_count: this.analysisHistory.length });
-        const exportData = {
+        let exportData = {
             timestamp: new Date().toISOString(),
             statistics: this.statistics,
             results: this.analysisHistory
         };
+
+        try {
+            if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+                const response = await chrome.runtime.sendMessage({ action: 'exportData' });
+                if (response?.success && response.data) {
+                    exportData = response.data;
+                }
+            }
+        } catch (error) {
+            console.warn('Deepfake Detection: Falling back to local export payload.', error);
+        }
 
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);

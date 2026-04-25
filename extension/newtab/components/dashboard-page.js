@@ -108,7 +108,7 @@ export class DashboardPage {
         }
 
         recent.forEach((result) => {
-            const riskLevel = this.platform.getRiskLevel(result.riskScore);
+            const riskLevel = this.platform.getResultRiskLevel(result);
             const sourceContext = this.platform.getSourceContext(result);
             const modelLabel = result.technicalDetails?.model || 'Unknown model';
             const card = document.createElement('article');
@@ -141,7 +141,7 @@ export class DashboardPage {
         }
 
         const total = Math.max(this.platform.analysisHistory.length, 1);
-        const mediumCount = this.platform.analysisHistory.filter((result) => result.riskScore >= 33 && result.riskScore < 66).length;
+        const mediumCount = this.platform.getMediumRiskCount(this.platform.analysisHistory);
         const breakdown = [
             { label: 'Low', value: Math.round((this.platform.statistics.lowRiskCount / total) * 100), className: 'low' },
             { label: 'Medium', value: Math.round((mediumCount / total) * 100), className: 'medium' },

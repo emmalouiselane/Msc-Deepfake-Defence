@@ -238,7 +238,7 @@ class ContentScript {
             const overlay = this.markAsExtensionRoot(document.createElement('div'));
             overlay.className = `${ContentScript.ROOT_CLASS} deepfake-overlay`;
             
-            const riskLevel = this.getRiskLevel(result.riskScore);
+            const riskLevel = this.getRiskLevel(result);
             overlay.classList.add(riskLevel.class + '-risk');
             this.applyContainerRiskState(container, riskLevel.class);
             this.applyMediaRiskState(element, riskLevel.class);
@@ -413,13 +413,33 @@ class ContentScript {
         }
     }
 
-    getRiskLevel(score) {
+    getRiskLevel(resultOrScore) {
+        const finalLabel = typeof resultOrScore === 'object' && resultOrScore !== null
+            ? resultOrScore.finalLabel
+            : null;
+        const score = typeof resultOrScore === 'object' && resultOrScore !== null
+            ? Number(resultOrScore.riskScore) || 0
+            : Number(resultOrScore) || 0;
+
+        if (finalLabel?.label && finalLabel?.class) {
+            const labelMap = {
+                low: 'Likely Authentic',
+                medium: 'Unsure',
+                high: 'Likely Synthetic'
+            };
+            return {
+                label: finalLabel.label || labelMap[finalLabel.class] || 'Unsure',
+                class: finalLabel.class,
+                iconMarkup: this.getRiskIconMarkup(finalLabel.class, 20)
+            };
+        }
+
         if (score < 33) {
-            return { label: 'Low Risk', class: 'low', iconMarkup: this.getRiskIconMarkup('low', 20) };
+            return { label: 'Likely Authentic', class: 'low', iconMarkup: this.getRiskIconMarkup('low', 20) };
         } else if (score < 66) {
-            return { label: 'Medium Risk', class: 'medium', iconMarkup: this.getRiskIconMarkup('medium', 20) };
+            return { label: 'Unsure', class: 'medium', iconMarkup: this.getRiskIconMarkup('medium', 20) };
         } else {
-            return { label: 'High Risk', class: 'high', iconMarkup: this.getRiskIconMarkup('high', 20) };
+            return { label: 'Likely Synthetic', class: 'high', iconMarkup: this.getRiskIconMarkup('high', 20) };
         }
     }
 
@@ -736,7 +756,7 @@ class ContentScript {
         const confidence = isError ? 0 : (result.confidence || 0);
         const canOpenDetails = !isError && Boolean(result?.id);
         
-        const riskLevel = this.getRiskLevel(riskScore);
+        const riskLevel = this.getRiskLevel(result);
         notification.className = `${ContentScript.ROOT_CLASS} deepfake-analysis-toast ${isError ? 'is-error' : `is-${riskLevel.class}`}`;
         
         notification.innerHTML = `
@@ -786,13 +806,34 @@ class ContentScript {
         }, timeout);
     }
 
-    getRiskLevel(score) {
+    getRiskLevel(resultOrScore) {
+        const finalLabel = typeof resultOrScore === 'object' && resultOrScore !== null
+            ? resultOrScore.finalLabel
+            : null;
+        const score = typeof resultOrScore === 'object' && resultOrScore !== null
+            ? Number(resultOrScore.riskScore) || 0
+            : Number(resultOrScore) || 0;
+
+        if (finalLabel?.label && finalLabel?.class) {
+            const labelMap = {
+                low: 'Likely Authentic',
+                medium: 'Unsure',
+                high: 'Likely Synthetic'
+            };
+            return {
+                label: finalLabel.label || labelMap[finalLabel.class] || 'Unsure',
+                class: finalLabel.class,
+                color: finalLabel.class === 'low' ? '#28a745' : (finalLabel.class === 'medium' ? '#ffc107' : '#dc3545'),
+                iconMarkup: this.getRiskIconMarkup(finalLabel.class, 20)
+            };
+        }
+
         if (score < 33) {
-            return { label: 'Low Risk', class: 'low', color: '#28a745', iconMarkup: this.getRiskIconMarkup('low', 20) };
+            return { label: 'Likely Authentic', class: 'low', color: '#28a745', iconMarkup: this.getRiskIconMarkup('low', 20) };
         } else if (score < 66) {
-            return { label: 'Medium Risk', class: 'medium', color: '#ffc107', iconMarkup: this.getRiskIconMarkup('medium', 20) };
+            return { label: 'Unsure', class: 'medium', color: '#ffc107', iconMarkup: this.getRiskIconMarkup('medium', 20) };
         } else {
-            return { label: 'High Risk', class: 'high', color: '#dc3545', iconMarkup: this.getRiskIconMarkup('high', 20) };
+            return { label: 'Likely Synthetic', class: 'high', color: '#dc3545', iconMarkup: this.getRiskIconMarkup('high', 20) };
         }
     }
 

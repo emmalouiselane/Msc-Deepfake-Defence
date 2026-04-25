@@ -402,6 +402,8 @@ class BackgroundService {
                 id: analysisId,
                 riskScore: result.riskScore,
                 confidence: result.confidence,
+                predictedLabel: result.predictedLabel,
+                finalLabel: result.finalLabel,
                 processingTime,
                 explanation: this.generateExplanation(result.riskScore, sensitivity, detailLevel, result),
                 technicalDetails: {
@@ -477,6 +479,8 @@ class BackgroundService {
                 sourceType: 'upload',
                 riskScore: result.riskScore,
                 confidence: result.confidence,
+                predictedLabel: result.predictedLabel,
+                finalLabel: result.finalLabel,
                 processingTime,
                 explanation: this.generateExplanation(result.riskScore, sensitivity, detailLevel, result),
                 technicalDetails: {
@@ -591,6 +595,8 @@ class BackgroundService {
                 ...existingResult,
                 riskScore: result.riskScore,
                 confidence: result.confidence,
+                predictedLabel: result.predictedLabel,
+                finalLabel: result.finalLabel,
                 processingTime,
                 explanation: this.generateExplanation(result.riskScore, sensitivity, detailLevel, result),
                 technicalDetails: {
@@ -605,6 +611,8 @@ class BackgroundService {
                         timestamp,
                         riskScore: result.riskScore,
                         confidence: result.confidence,
+                        predictedLabel: result.predictedLabel,
+                        finalLabel: result.finalLabel,
                         processingTime,
                         technicalDetails: result.technicalDetails
                     })
@@ -1085,7 +1093,8 @@ class BackgroundService {
         const calibratedOutput = inferenceSummary.calibratedOutput;
         const threshold = this.calculateSensitivityThreshold(sensitivity);
         const confidence = this.calculateConfidence(calibratedOutput, threshold);
-        const riskScore = this.applySensitivityToModelOutput(calibratedOutput, sensitivity);
+        const riskScore = this.getDisplayRiskScore(calibratedOutput);
+        const finalLabel = this.getFinalLabel(calibratedOutput, sensitivity);
         const margin = calibratedOutput - threshold;
 
         console.log('Deepfake Detection: Inference summary', {
@@ -1093,8 +1102,9 @@ class BackgroundService {
             calibratedOutput: calibratedOutput.toFixed(6),
             threshold: threshold.toFixed(6),
             margin: margin.toFixed(6),
-            riskScore: riskScore.toFixed(2),
+            displayScore: riskScore.toFixed(2),
             confidence: confidence.toFixed(2),
+            finalLabel: finalLabel.label,
             outputName: inferenceSummary.outputName,
             tensorShape: inputTensor.dims,
             inputSize: preprocessing.debug?.sourceDimensions,
@@ -1105,6 +1115,8 @@ class BackgroundService {
         return {
             riskScore,
             confidence,
+            predictedLabel: finalLabel.decision,
+            finalLabel,
             rawOutput,
             calibratedOutput,
             threshold,
@@ -1116,6 +1128,8 @@ class BackgroundService {
                 rawOutput: rawOutput.toFixed(6),
                 calibratedOutput: calibratedOutput.toFixed(6),
                 margin: margin.toFixed(6),
+                displayScoreBasis: 'calibrated-probability',
+                decisionLabel: finalLabel.decision,
                 outputName: inferenceSummary.outputName,
                 confidenceBasis: 'distance-from-threshold-calibrated',
                 captureStrategy: imageDebug.strategy || 'unknown',
@@ -1439,7 +1453,9 @@ class BackgroundService {
             riskScore: Number(result.riskScore) || 0,
             confidence: Number(result.confidence) || 0,
             model: result.technicalDetails?.model || 'Unknown model',
-            processingTime: Number(result.processingTime) || 0
+            processingTime: Number(result.processingTime) || 0,
+            finalLabel: result.finalLabel || null,
+            predictedLabel: result.predictedLabel || null
         };
     }
 
@@ -1708,8 +1724,8 @@ class BackgroundService {
 
         return {
             totalAnalysed: history.length,
-            highRiskCount: successfulResults.filter((entry) => entry.riskScore >= 66).length,
-            lowRiskCount: successfulResults.filter((entry) => entry.riskScore < 33).length,
+            highRiskCount: successfulResults.filter((entry) => this.getResultRiskClass(entry) === 'high').length,
+            lowRiskCount: successfulResults.filter((entry) => this.getResultRiskClass(entry) === 'low').length,
             avgProcessingTime: successfulResults.length
                 ? Math.round(totalProcessingTime / successfulResults.length)
                 : 0
@@ -1718,10 +1734,16 @@ class BackgroundService {
 
     async exportAnalysisData() {
         const data = await chrome.storage.local.get(['analysisHistory', 'statistics']);
+        const results = Array.isArray(data.analysisHistory) ? data.analysisHistory : [];
+        const evaluationSamples = results.map((entry) => this.buildEvaluationSample(entry));
         return {
             timestamp: new Date().toISOString(),
             statistics: data.statistics || this.getEmptyStatistics(),
-            results: data.analysisHistory || []
+            results,
+            evaluation: {
+                samples: evaluationSamples,
+                metrics: this.calculateEvaluationMetrics(evaluationSamples)
+            }
         };
     }
 
@@ -1805,12 +1827,7 @@ class BackgroundService {
     }
 
     generateExplanation(riskScore, sensitivity, detailLevel = 50, inferenceResult = null) {
-        let group = 'low';
-        if (riskScore >= 66) {
-            group = 'high';
-        } else if (riskScore >= 33) {
-            group = 'medium';
-        }
+        const group = inferenceResult?.finalLabel?.class || this.getRiskClassFromScore(riskScore);
 
         const summaryByGroup = {
             low: 'This result suggests the media is likely authentic, with only weak signs of manipulation.',
@@ -1883,6 +1900,198 @@ class BackgroundService {
         // Give clearer separation between borderline and decisive results.
         const curvedDistance = Math.pow(normalisedDistance, 0.7);
         return Math.max(50, Math.min(99, 50 + curvedDistance * 49));
+    }
+
+    getDisplayRiskScore(probability) {
+        return this.clampProbability(probability) * 100;
+    }
+
+    getFinalLabel(probability, sensitivity) {
+        const threshold = this.calculateSensitivityThreshold(sensitivity);
+        const reviewThreshold = Math.max(0, threshold - 0.1);
+        const decision = probability >= threshold ? 'synthetic' : 'authentic';
+
+        if (probability >= threshold) {
+            return {
+                label: 'Likely Synthetic',
+                class: 'high',
+                decision,
+                threshold,
+                reviewThreshold
+            };
+        }
+
+        if (probability >= reviewThreshold) {
+            return {
+                label: 'Unsure',
+                class: 'medium',
+                decision,
+                threshold,
+                reviewThreshold
+            };
+        }
+
+        return {
+            label: 'Likely Authentic',
+            class: 'low',
+            decision,
+            threshold,
+            reviewThreshold
+        };
+    }
+
+    getRiskClassFromScore(score) {
+        if (score < 33) {
+            return 'low';
+        }
+
+        if (score < 66) {
+            return 'medium';
+        }
+
+        return 'high';
+    }
+
+    getResultRiskClass(result = {}) {
+        if (result?.finalLabel?.class) {
+            return result.finalLabel.class;
+        }
+
+        return this.getRiskClassFromScore(Number(result?.riskScore) || 0);
+    }
+
+    inferTrueLabel(result = {}) {
+        if (typeof result.trueLabel === 'string' && ['authentic', 'synthetic'].includes(result.trueLabel)) {
+            return {
+                label: result.trueLabel,
+                source: 'result.trueLabel'
+            };
+        }
+
+        const candidates = [
+            result.filename,
+            result.source,
+            result.mediaUrl,
+            result.pageTitle
+        ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+
+        if (/(^|[^a-z])(real|authentic|genuine|human)($|[^a-z])/.test(candidates)) {
+            return {
+                label: 'authentic',
+                source: 'filename-or-metadata'
+            };
+        }
+
+        if (/(^|[^a-z])(ai|synthetic|fake|deepfake|faceswap)($|[^a-z])/.test(candidates)) {
+            return {
+                label: 'synthetic',
+                source: 'filename-or-metadata'
+            };
+        }
+
+        return {
+            label: null,
+            source: 'unavailable'
+        };
+    }
+
+    buildEvaluationSample(result = {}) {
+        const truth = this.inferTrueLabel(result);
+        const components = Array.isArray(result?.technicalDetails?.ensembleComponents)
+            ? result.technicalDetails.ensembleComponents
+            : [];
+        const mesonet = components.find((entry) => entry.modelKey === 'mesonet');
+        const lightweight = components.find((entry) => entry.modelKey === 'lightweight');
+        const ensembleOutput = Number(result?.technicalDetails?.calibratedOutput);
+        const decisionThreshold = Number(result?.finalLabel?.threshold ?? result?.technicalDetails?.threshold);
+        const finalLabel = result?.finalLabel?.label || this.getFinalLabel(this.clampProbability(ensembleOutput), Number(result?.technicalDetails?.sensitivity) || 50).label;
+        const predictedLabel = result?.predictedLabel || result?.finalLabel?.decision || (Number.isFinite(ensembleOutput) && Number.isFinite(decisionThreshold) && ensembleOutput >= decisionThreshold ? 'synthetic' : 'authentic');
+
+        return {
+            id: result.id || null,
+            filename: result.filename || null,
+            trueLabel: truth.label,
+            trueLabelSource: truth.source,
+            mesonetOutput: Number.isFinite(Number(mesonet?.calibratedOutput)) ? Number(mesonet.calibratedOutput) : null,
+            lightweightOutput: Number.isFinite(Number(lightweight?.calibratedOutput)) ? Number(lightweight.calibratedOutput) : null,
+            ensembleOutput: Number.isFinite(ensembleOutput) ? ensembleOutput : null,
+            displayScore: Number(result.riskScore) || 0,
+            finalLabel,
+            predictedLabel,
+            confidence: Number(result.confidence) || 0,
+            sensitivity: Number(result?.technicalDetails?.sensitivity) || null,
+            threshold: Number.isFinite(decisionThreshold) ? decisionThreshold : null
+        };
+    }
+
+    calculateEvaluationMetrics(samples = []) {
+        const labeled = samples.filter((sample) => ['authentic', 'synthetic'].includes(sample.trueLabel) && ['authentic', 'synthetic'].includes(sample.predictedLabel));
+        const confusionMatrix = {
+            truePositive: 0,
+            falsePositive: 0,
+            trueNegative: 0,
+            falseNegative: 0
+        };
+
+        labeled.forEach((sample) => {
+            if (sample.trueLabel === 'synthetic' && sample.predictedLabel === 'synthetic') {
+                confusionMatrix.truePositive += 1;
+            } else if (sample.trueLabel === 'authentic' && sample.predictedLabel === 'synthetic') {
+                confusionMatrix.falsePositive += 1;
+            } else if (sample.trueLabel === 'authentic' && sample.predictedLabel === 'authentic') {
+                confusionMatrix.trueNegative += 1;
+            } else if (sample.trueLabel === 'synthetic' && sample.predictedLabel === 'authentic') {
+                confusionMatrix.falseNegative += 1;
+            }
+        });
+
+        const total = labeled.length;
+        const accuracy = total > 0
+            ? (confusionMatrix.truePositive + confusionMatrix.trueNegative) / total
+            : null;
+        const precision = (confusionMatrix.truePositive + confusionMatrix.falsePositive) > 0
+            ? confusionMatrix.truePositive / (confusionMatrix.truePositive + confusionMatrix.falsePositive)
+            : null;
+        const recall = (confusionMatrix.truePositive + confusionMatrix.falseNegative) > 0
+            ? confusionMatrix.truePositive / (confusionMatrix.truePositive + confusionMatrix.falseNegative)
+            : null;
+
+        return {
+            labeledSampleCount: total,
+            positiveClass: 'synthetic',
+            accuracy,
+            precision,
+            recall,
+            rocAuc: this.calculateRocAuc(labeled),
+            confusionMatrix
+        };
+    }
+
+    calculateRocAuc(samples = []) {
+        const positives = samples.filter((sample) => sample.trueLabel === 'synthetic' && Number.isFinite(sample.ensembleOutput));
+        const negatives = samples.filter((sample) => sample.trueLabel === 'authentic' && Number.isFinite(sample.ensembleOutput));
+
+        if (!positives.length || !negatives.length) {
+            return null;
+        }
+
+        let wins = 0;
+        let ties = 0;
+
+        positives.forEach((positive) => {
+            negatives.forEach((negative) => {
+                if (positive.ensembleOutput > negative.ensembleOutput) {
+                    wins += 1;
+                } else if (positive.ensembleOutput === negative.ensembleOutput) {
+                    ties += 1;
+                }
+            });
+        });
+
+        return (wins + (ties * 0.5)) / (positives.length * negatives.length);
     }
 }
 
