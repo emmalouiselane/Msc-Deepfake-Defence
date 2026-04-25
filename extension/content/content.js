@@ -637,6 +637,15 @@ class ContentScript {
         `);
     }
 
+    shouldSuppressAnalysisError(error) {
+        if (!error) {
+            return false;
+        }
+
+        return error.type === 'network_error'
+            || error.userMessage === 'The extension could not download this media for analysis.';
+    }
+
     async analyseMedia(media) {
         try {
             // Check if Chrome APIs are available
@@ -663,6 +672,10 @@ class ContentScript {
                 this.logAnalysisResult(media, response.result);
                 this.showAnalysisResult(response.result);
             } else {
+                if (this.shouldSuppressAnalysisError(response.error)) {
+                    return;
+                }
+
                 // Show user-friendly error message
                 this.showError(response.error?.userMessage || 'Analysis failed. Please try again.');
             }
@@ -1062,7 +1075,9 @@ class ContentScript {
             if (response?.success) {
                 this.createOverlay(element, response.result);
             } else {
-                this.createErrorOverlay(element, response?.error?.userMessage || 'Analysis failed');
+                if (!this.shouldSuppressAnalysisError(response?.error)) {
+                    this.createErrorOverlay(element, response?.error?.userMessage || 'Analysis failed');
+                }
             }
 
             this.analysedElements.add(element);
@@ -1124,8 +1139,10 @@ class ContentScript {
                 this.createOverlay(element, response.result);
                 this.analysedElements.add(element);
             } else {
-                this.showError(response?.error?.userMessage || 'Re-analysis failed');
-                this.createErrorOverlay(element, response?.error?.userMessage || 'Re-analysis failed');
+                if (!this.shouldSuppressAnalysisError(response?.error)) {
+                    this.showError(response?.error?.userMessage || 'Re-analysis failed');
+                    this.createErrorOverlay(element, response?.error?.userMessage || 'Re-analysis failed');
+                }
             }
         } catch (error) {
             console.error('Deepfake Detection: Overlay re-analysis failed:', error);
@@ -1317,8 +1334,10 @@ class ContentScript {
                     console.log(`Deepfake Detection: Creating overlay for element ${index} with sensitivity ${this.sensitivity}`);
                     this.createOverlay(media.element, response.result);
                 } else {
-                    // Show user-friendly error on the media element itself
-                    this.createErrorOverlay(media.element, response.error?.userMessage || 'Analysis failed');
+                    if (!this.shouldSuppressAnalysisError(response.error)) {
+                        // Show user-friendly error on the media element itself
+                        this.createErrorOverlay(media.element, response.error?.userMessage || 'Analysis failed');
+                    }
                 }
             } catch (error) {
                 console.error(`Deepfake Detection: Failed to analyze element ${index}:`, error);
