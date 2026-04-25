@@ -13,6 +13,7 @@ class ContentScript {
         this.viewportObserver = null;
         this.analysedElements = new WeakSet();
         this.processingElements = new WeakSet();
+        this.videoReadinessListeners = new WeakSet();
         this.isEnabled = false;
         this.sensitivity = 50;
         this.detailLevel = 100;
@@ -98,9 +99,15 @@ class ContentScript {
     findMediaElements() {
         const images = document.querySelectorAll('img[src]');
         const videoPosters = document.querySelectorAll('video[poster]');
+        const videos = document.querySelectorAll('video');
 
         const mediaElements = [
             ...Array.from(images).map(img => ({ src: img.src, element: img, type: 'image' })),
+            ...Array.from(videos).map(video => ({
+                src: video.currentSrc || video.src || video.poster || '',
+                element: video,
+                type: 'video'
+            })),
             ...Array.from(videoPosters).map(video => ({
                 src: video.poster,
                 element: video,
@@ -234,6 +241,7 @@ class ContentScript {
             const riskLevel = this.getRiskLevel(result.riskScore);
             overlay.classList.add(riskLevel.class + '-risk');
             this.applyContainerRiskState(container, riskLevel.class);
+            this.applyMediaRiskState(element, riskLevel.class);
             
             overlay.innerHTML = `
                 <div class="deepfake-overlay-icon">${riskLevel.iconMarkup}</div>
@@ -318,6 +326,17 @@ class ContentScript {
         container.classList.remove('risk-low', 'risk-medium', 'risk-high');
         if (riskClass) {
             container.classList.add(`risk-${riskClass}`);
+        }
+    }
+
+    applyMediaRiskState(element, riskClass) {
+        if (!element?.classList) {
+            return;
+        }
+
+        element.classList.remove('deepfake-risk-frame', 'risk-low', 'risk-medium', 'risk-high');
+        if (riskClass) {
+            element.classList.add('deepfake-risk-frame', `risk-${riskClass}`);
         }
     }
 
@@ -473,8 +492,8 @@ class ContentScript {
         });
     }
 
-    buildAnalysisRequest(media) {
-        return {
+    async buildAnalysisRequest(media) {
+        const request = {
             src: media.src,
             type: media.type || 'image',
             element: media.element?.tagName?.toLowerCase() || 'img',
@@ -482,6 +501,13 @@ class ContentScript {
             detailLevel: this.detailLevel,
             captureBounds: this.getCaptureBounds(media.element)
         };
+
+        if (media?.type === 'video') {
+            request.imageDataUrl = await this.captureVideoFrameDataUrl(media.element);
+            request.snapshotSource = 'video-frame';
+        }
+
+        return request;
     }
 
     getCaptureBounds(element) {
@@ -509,13 +535,46 @@ class ContentScript {
             return false;
         }
 
+        if (media?.type === 'video' && !this.canCaptureVideoFrame(media.element)) {
+            return false;
+        }
+
         const minWidth = 180;
-        const minHeight = 180;
+        const minHeight = 150;
         const minArea = 60000;
 
         return bounds.width >= minWidth
             && bounds.height >= minHeight
             && (bounds.width * bounds.height) >= minArea;
+    }
+
+    canCaptureVideoFrame(videoElement) {
+        if (!videoElement) {
+            return false;
+        }
+
+        return videoElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+            && (videoElement.videoWidth || 0) > 0
+            && (videoElement.videoHeight || 0) > 0;
+    }
+
+    attachVideoReadinessListener(videoElement) {
+        if (!videoElement || this.videoReadinessListeners.has(videoElement)) {
+            return;
+        }
+
+        const handleReady = () => {
+            if (!this.isEnabled || this.detectionMode !== 'automatic') {
+                return;
+            }
+
+            this.syncAutomaticAnalysisTargets();
+        };
+
+        videoElement.addEventListener('loadedmetadata', handleReady);
+        videoElement.addEventListener('loadeddata', handleReady);
+        videoElement.addEventListener('canplay', handleReady);
+        this.videoReadinessListeners.add(videoElement);
     }
 
     async ensureMediaVisible(element) {
@@ -594,9 +653,10 @@ class ContentScript {
             await this.ensureMediaVisible(media.element);
             
             // Send analysis request to background script with current sensitivity
+            const request = await this.buildAnalysisRequest(media);
             const response = await chrome.runtime.sendMessage({
                 action: 'analyzeMedia',
-                data: this.buildAnalysisRequest(media)
+                data: request
             });
             
             if (response.success) {
@@ -881,6 +941,7 @@ class ContentScript {
         }
 
         this.applyContainerRiskState(container, null);
+        this.applyMediaRiskState(mediaElement || container.querySelector('img, video'), null);
 
         if (container.dataset.deepfakeOwnedWrapper === 'true') {
             const media = mediaElement || container.querySelector('img, video');
@@ -946,6 +1007,10 @@ class ContentScript {
         this.mediaElements = this.findMediaElements();
         this.setupViewportObserver();
         this.mediaElements.forEach((media) => {
+            if (media?.type === 'video' && media?.element) {
+                this.attachVideoReadinessListener(media.element);
+            }
+
             if (media?.element && document.contains(media.element) && this.isEligibleForAutomaticAnalysis(media)) {
                 this.viewportObserver.observe(media.element);
             }
@@ -984,9 +1049,10 @@ class ContentScript {
                 return;
             }
 
+            const request = await this.buildAnalysisRequest(media);
             const response = await chrome.runtime.sendMessage({
                 action: 'analyzeMedia',
-                data: this.buildAnalysisRequest(media)
+                data: request
             });
 
             if (loadingOverlay?.parentNode) {
@@ -1085,11 +1151,15 @@ class ContentScript {
                     if (node.nodeType === Node.ELEMENT_NODE) {
                         if (node.tagName === 'IMG' || node.tagName === 'VIDEO') {
                             hasNewMedia = true;
+                            if (node.tagName === 'VIDEO') {
+                                this.attachVideoReadinessListener(node);
+                            }
                         } else if (node.querySelectorAll) {
                             const images = node.querySelectorAll('img');
                             const videos = node.querySelectorAll('video');
                             if (images.length > 0 || videos.length > 0) {
                                 hasNewMedia = true;
+                                videos.forEach((video) => this.attachVideoReadinessListener(video));
                             }
                         }
                     }
@@ -1232,9 +1302,10 @@ class ContentScript {
                 }
                 
                 // Send analysis request to background script
+                const request = await this.buildAnalysisRequest(media);
                 const response = await chrome.runtime.sendMessage({
                     action: 'analyzeMedia',
-                    data: this.buildAnalysisRequest(media)
+                    data: request
                 });
                 
                 // Remove loading overlay
@@ -1417,6 +1488,30 @@ class ContentScript {
         return new Promise((resolve) => {
             img.onload = () => resolve(img);
         });
+    }
+
+    async captureVideoFrameDataUrl(videoElement) {
+        if (!videoElement) {
+            throw new Error('No video element was provided for frame capture.');
+        }
+
+        const width = videoElement.videoWidth || videoElement.clientWidth || 0;
+        const height = videoElement.videoHeight || videoElement.clientHeight || 0;
+        if (width <= 0 || height <= 0) {
+            throw new Error('Video metadata is not ready for frame capture yet.');
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            throw new Error('Canvas context is unavailable for video frame capture.');
+        }
+
+        ctx.drawImage(videoElement, 0, 0, width, height);
+        return canvas.toDataURL('image/png');
     }
 
     async generateMockAnalysis() {

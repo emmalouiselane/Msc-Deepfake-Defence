@@ -372,7 +372,7 @@ class BackgroundService {
 
         try {
             const imageUrl = mediaData?.src;
-            if (!imageUrl) {
+            if (!imageUrl && !mediaData?.imageDataUrl && !mediaData?.imageBytes) {
                 throw new Error('No media source was provided for analysis.');
             }
 
@@ -631,12 +631,24 @@ class BackgroundService {
     validateMediaRequest(mediaData) {
         const mediaType = mediaData?.type || 'image';
 
-        if (mediaType === 'video') {
+        if (mediaType === 'video' && !mediaData?.imageDataUrl && !mediaData?.imageBytes) {
             throw new Error('Direct video analysis is not supported yet. Use a video poster image instead.');
         }
     }
 
     async loadImageForAnalysis(mediaData, sender) {
+        if (mediaData?.imageDataUrl || mediaData?.imageBytes) {
+            const imageBitmap = await this.loadUploadedImageBitmap(mediaData);
+            return {
+                imageBitmap,
+                debugInfo: {
+                    strategy: mediaData?.snapshotSource || 'captured-image',
+                    mediaUrl: mediaData?.src || '',
+                    requestedBounds: mediaData?.captureBounds || null
+                }
+            };
+        }
+
         if (this.shouldPreferCapturedImage(mediaData)) {
             return this.captureElementImageBitmap(sender, mediaData.captureBounds);
         }

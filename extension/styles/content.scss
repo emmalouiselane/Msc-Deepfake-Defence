@@ -218,6 +218,8 @@
 
 .deepfake-container.deepfake-extension-root {
   position: relative;
+  z-index: 1;
+  isolation: isolate;
 }
 
 .deepfake-container.deepfake-extension-root.risk-low {
@@ -232,12 +234,35 @@
   box-shadow: inset 0 0 0 3px rgba($state-danger, 0.95);
 }
 
+img.deepfake-risk-frame,
+video.deepfake-risk-frame {
+  box-sizing: border-box;
+}
+
+img.deepfake-risk-frame.risk-low,
+video.deepfake-risk-frame.risk-low {
+  outline: 3px solid rgba($state-success, 0.95);
+  outline-offset: -3px;
+}
+
+img.deepfake-risk-frame.risk-medium,
+video.deepfake-risk-frame.risk-medium {
+  outline: 3px solid rgba($state-warning, 0.95);
+  outline-offset: -3px;
+}
+
+img.deepfake-risk-frame.risk-high,
+video.deepfake-risk-frame.risk-high {
+  outline: 3px solid rgba($state-danger, 0.95);
+  outline-offset: -3px;
+}
+
 .deepfake-overlay.deepfake-extension-root {
   position: absolute;
   right: 8px;
   bottom: 8px;
   left: 8px;
-  z-index: 1000;
+  z-index: 2;
   display: flex;
   gap: 10px;
   align-items: center;
@@ -327,7 +352,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1000;
+  z-index: 3;
   width: 100%;
   height: 100%;
   display: flex;
@@ -340,7 +365,7 @@
   position: absolute;
   top: 0;
   left: 0;
-  z-index: 1000;
+  z-index: 3;
   width: 100%;
   height: 100%;
   opacity: 0;
