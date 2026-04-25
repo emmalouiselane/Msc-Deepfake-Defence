@@ -218,7 +218,7 @@
 
 .deepfake-container.deepfake-extension-root {
   position: relative;
-  z-index: 1;
+  z-index: 999;
   isolation: isolate;
 }
 
@@ -262,7 +262,7 @@ video.deepfake-risk-frame.risk-high {
   right: 8px;
   bottom: 8px;
   left: 8px;
-  z-index: 2;
+  z-index: 1000;
   display: flex;
   gap: 10px;
   align-items: center;
