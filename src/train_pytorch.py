@@ -127,29 +127,29 @@ def validate_epoch(model, val_loader, criterion, device):
 def train_model(data_dir, model_type='mesonet', epochs=50, batch_size=32, learning_rate=0.001):
     """Train deepfake detection model with PyTorch"""
     
-    print(f"🚀 Starting PyTorch training with {model_type} model")
-    print(f"📁 Data directory: {data_dir}")
-    print(f"📊 Batch size: {batch_size}")
-    print(f"⏱️  Epochs: {epochs}")
-    print(f"📈 Learning rate: {learning_rate}")
+    print(f"Starting PyTorch training with {model_type} model")
+    print(f"Data directory: {data_dir}")
+    print(f"Batch size: {batch_size}")
+    print(f"Epochs: {epochs}")
+    print(f"Learning rate: {learning_rate}")
     print()
     
     # Check device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"🖥️  Using device: {device}")
+    print(f"Using device: {device}")
     
     # Prepare dataset
-    print("📋 Preparing dataset...")
+    print("Preparing dataset...")
     train_loader, val_loader, test_loader, splits = prepare_dataset(data_dir, batch_size)
     
-    print(f"✅ Dataset prepared:")
+    print("Dataset prepared:")
     print(f"   Training samples: {len(splits['train'][0])}")
     print(f"   Validation samples: {len(splits['val'][0])}")
     print(f"   Test samples: {len(splits['test'][0])}")
     print()
     
     # Create model
-    print("🧠 Creating model...")
+    print("Creating model...")
     if model_type == 'mesonet':
         model = MesoNetPyTorch()
     else:
@@ -159,7 +159,7 @@ def train_model(data_dir, model_type='mesonet', epochs=50, batch_size=32, learni
     
     # Print model info
     model_info = get_model_info(model)
-    print(f"✅ Model created:")
+    print("Model created:")
     print(f"   Parameters: {model_info['total_parameters']:,}")
     print(f"   Size: {model_info['size_mb']:.2f} MB")
     print()
@@ -178,7 +178,7 @@ def train_model(data_dir, model_type='mesonet', epochs=50, batch_size=32, learni
     best_val_acc = 0.0
     
     # Training loop
-    print("🏋️  Starting training...")
+    print("Starting training...")
     for epoch in range(epochs):
         print(f'\nEpoch {epoch + 1}/{epochs}')
         print('-' * 50)
@@ -207,14 +207,14 @@ def train_model(data_dir, model_type='mesonet', epochs=50, batch_size=32, learni
             best_val_acc = val_acc
             os.makedirs('models', exist_ok=True)
             torch.save(model.state_dict(), f'models/{model_type}_best_model.pth')
-            print(f'✅ New best model saved with accuracy: {val_acc:.2f}%')
+            print(f'New best model saved with accuracy: {val_acc:.2f}%')
     
     # Test best model
-    print("\n📈 Testing best model...")
+    print("\nTesting best model...")
     model.load_state_dict(torch.load(f'models/{model_type}_best_model.pth'))
     test_loss, test_acc = validate_epoch(model, test_loader, criterion, device)
     
-    print(f'🎯 Test Results:')
+    print('Test Results:')
     print(f'   Test Loss: {test_loss:.4f}')
     print(f'   Test Accuracy: {test_acc:.2f}%')
     
@@ -241,7 +241,7 @@ def save_training_history(history, model_type):
     with open(f'models/{model_type}_history.json', 'w') as f:
         json.dump(history_dict, f, indent=2)
     
-    print(f"💾 Training history saved to models/{model_type}_history.json")
+    print(f"Training history saved to models/{model_type}_history.json")
 
 def plot_training_history(history, model_type):
     """Plot training curves"""
@@ -268,9 +268,9 @@ def plot_training_history(history, model_type):
     
     plt.tight_layout()
     plt.savefig(f'models/{model_type}_training_curves.png', dpi=150, bbox_inches='tight')
-    plt.show()
-    
-    print(f"📊 Training curves saved to models/{model_type}_training_curves.png")
+    plt.close(fig)
+
+    print(f"Training curves saved to models/{model_type}_training_curves.png")
 
 def export_to_onnx(model, model_type):
     """Export model to ONNX for browser deployment"""
@@ -290,9 +290,9 @@ def export_to_onnx(model, model_type):
             input_names=['input'],
             output_names=['output']
         )
-        print(f"🌐 Model exported to models/{model_type}_model.onnx")
+        print(f"Model exported to models/{model_type}_model.onnx")
     except Exception as e:
-        print(f"❌ ONNX export failed: {e}")
+        print(f"ONNX export failed: {e}")
 
 def copy_model_to_extension(model_type):
     """Copy exported ONNX artifacts into the extension models directory."""
@@ -309,15 +309,15 @@ def copy_model_to_extension(model_type):
             copied_files.append(str(destination))
 
     if copied_files:
-        print('📦 Copied model artifacts to extension:')
+        print('Copied model artifacts to extension:')
         for path in copied_files:
             print(f'   {path}')
     else:
-        print(f'⚠️ No exported ONNX artifacts found for {model_type} in models/.')
+        print(f'No exported ONNX artifacts found for {model_type} in models/.')
 
 def quick_test():
     """Quick test with synthetic data"""
-    print("🧪 Running quick test with synthetic data...")
+    print("Running quick test with synthetic data...")
     
     # Create sample dataset
     data_dir = "data/processed/quick_test"
@@ -355,7 +355,7 @@ def main():
     data_dir = args.data_dir
 
     if args.create_sample_data or not os.path.exists(data_dir):
-        print("📁 Dataset not found. Creating sample dataset...")
+        print("Dataset not found. Creating sample dataset...")
         create_sample_dataset(data_dir, num_samples=args.sample_count)
 
     train_model(
@@ -369,8 +369,8 @@ def main():
     if args.copy_to_extension:
         copy_model_to_extension(args.model_type)
 
-    print("🎉 Training completed!")
-    print("📂 Check 'models/' directory for saved model and results")
+    print("Training completed.")
+    print("Check 'models/' directory for saved model and results")
 
 if __name__ == "__main__":
     main()

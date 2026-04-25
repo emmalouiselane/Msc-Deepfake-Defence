@@ -10,6 +10,8 @@ from pathlib import Path
 import json
 from typing import List, Tuple
 import logging
+import argparse
+import random
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -183,6 +185,75 @@ class DatasetPreprocessor:
         
         return splits
 
+    def process_faceforensics_dataset(
+        self,
+        input_dir: str,
+        output_dir: str,
+        real_limit: int | None = None,
+        fake_limit_per_source: int | None = None,
+        seed: int = 42
+    ):
+        """Convert FaceForensics++ style raw videos into processed real/fake .npy samples."""
+        input_path = Path(input_dir)
+        output_path = Path(output_dir)
+        real_dir = output_path / 'real'
+        fake_dir = output_path / 'fake'
+        real_dir.mkdir(parents=True, exist_ok=True)
+        fake_dir.mkdir(parents=True, exist_ok=True)
+
+        real_videos = sorted((input_path / 'original').glob('*.mp4'))
+        fake_sources = [
+            'Deepfakes',
+            'Face2Face',
+            'FaceSwap',
+            'NeuralTextures',
+            'FaceShifter',
+            'DeepFakeDetection'
+        ]
+
+        rng = random.Random(seed)
+        if real_limit is not None and len(real_videos) > real_limit:
+            real_videos = sorted(rng.sample(real_videos, real_limit))
+
+        logger.info('Processing FaceForensics originals: %s videos', len(real_videos))
+        real_count = 0
+        for video_path in real_videos:
+            real_count += self.process_video_file(str(video_path), str(real_dir), 'real')
+
+        fake_count = 0
+        source_counts = {}
+        for source_name in fake_sources:
+            source_dir = input_path / source_name
+            source_videos = sorted(source_dir.glob('*.mp4'))
+            if fake_limit_per_source is not None and len(source_videos) > fake_limit_per_source:
+                source_videos = sorted(rng.sample(source_videos, fake_limit_per_source))
+
+            logger.info('Processing FaceForensics %s: %s videos', source_name, len(source_videos))
+            processed = 0
+            for video_path in source_videos:
+                processed += self.process_video_file(str(video_path), str(fake_dir), 'fake')
+
+            source_counts[source_name] = processed
+            fake_count += processed
+
+        summary = {
+            'dataset': 'faceforensics',
+            'input_dir': str(input_path),
+            'output_dir': str(output_path),
+            'target_size': list(self.target_size),
+            'max_frames_per_video': self.max_frames_per_video,
+            'real_limit': real_limit,
+            'fake_limit_per_source': fake_limit_per_source,
+            'real_samples': real_count,
+            'fake_samples': fake_count,
+            'fake_samples_by_source': source_counts
+        }
+
+        with open(output_path / 'faceforensics_summary.json', 'w', encoding='utf-8') as handle:
+            json.dump(summary, handle, indent=2)
+
+        return summary
+
 def create_sample_dataset(output_dir: str, num_samples: int = 100):
     """Create a synthetic dataset for testing"""
     logger.info(f"Creating sample dataset with {num_samples} images...")
@@ -208,22 +279,43 @@ def create_sample_dataset(output_dir: str, num_samples: int = 100):
     logger.info(f"Sample dataset created in {output_dir}")
 
 def main():
-    """Main function for testing preprocessing"""
-    # Create sample dataset for immediate testing
-    data_dir = "data/processed/sample"
-    create_sample_dataset(data_dir, num_samples=200)
-    
-    # Create dataset splits
-    preprocessor = DatasetPreprocessor()
-    splits = preprocessor.create_dataset_splits(data_dir)
-    
-    # Print split information
-    for split_name, (files, labels) in splits.items():
-        print(f"{split_name.upper()} SET:")
-        print(f"  Total files: {len(files)}")
-        print(f"  Real samples: {labels.count('real')}")
-        print(f"  Fake samples: {labels.count('fake')}")
-        print()
+    """CLI entry point for dataset preprocessing."""
+    parser = argparse.ArgumentParser(description='Preprocess deepfake datasets into training-ready .npy samples.')
+    parser.add_argument('--dataset', choices=['sample', 'faceforensics'], default='sample')
+    parser.add_argument('--input-dir', default='data/raw/faceforensics')
+    parser.add_argument('--output-dir', default='data/processed/faceforensics')
+    parser.add_argument('--target-size', type=int, default=128)
+    parser.add_argument('--max-frames-per-video', type=int, default=6)
+    parser.add_argument('--real-limit', type=int, default=120)
+    parser.add_argument('--fake-limit-per-source', type=int, default=20)
+    parser.add_argument('--sample-count', type=int, default=200)
+    parser.add_argument('--seed', type=int, default=42)
+    args = parser.parse_args()
+
+    preprocessor = DatasetPreprocessor(
+        target_size=(args.target_size, args.target_size),
+        max_frames_per_video=args.max_frames_per_video
+    )
+
+    if args.dataset == 'sample':
+        create_sample_dataset(args.output_dir, num_samples=args.sample_count)
+        splits = preprocessor.create_dataset_splits(args.output_dir)
+        for split_name, (files, labels) in splits.items():
+            print(f"{split_name.upper()} SET:")
+            print(f"  Total files: {len(files)}")
+            print(f"  Real samples: {labels.count('real')}")
+            print(f"  Fake samples: {labels.count('fake')}")
+            print()
+        return
+
+    summary = preprocessor.process_faceforensics_dataset(
+        args.input_dir,
+        args.output_dir,
+        real_limit=args.real_limit,
+        fake_limit_per_source=args.fake_limit_per_source,
+        seed=args.seed
+    )
+    print(json.dumps(summary, indent=2))
 
 if __name__ == "__main__":
     main()
